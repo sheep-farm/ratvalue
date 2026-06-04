@@ -167,6 +167,24 @@ Model comparison:
   EVA / Excess Returns      BRL 58.51
 ```
 
+## Quick start (Python)
+
+```python
+import ratvalue as rv
+
+fcffs = rv.project_fcff(
+    rv.compute_fcff(ebit_b=126, tax_rate=0.34, da_b=45,
+                    capex_b=70, delta_nwc_b=5),
+    stages=[(0.03, 5)]
+)
+ke   = rv.cost_of_equity(rf=0.05, beta=1.30, erp=0.05)
+wacc = rv.compute_wacc(2/3, ke, 1/3, kd=0.06, tax_rate=0.34)
+
+result = rv.compute_dcf(fcffs, wacc=wacc, terminal_growth=0.015,
+                         net_debt_billions=250, shares=13_000_000_000)
+print(result.price_per_share)   # 39.88
+```
+
 ## Documentation
 
 A full user manual (51 pages) covering theory, C++ and Python API reference,
