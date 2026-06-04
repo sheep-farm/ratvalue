@@ -159,9 +159,16 @@ ctest --test-dir build --output-on-failure   # 82 tests, all green
 \end{lstlisting}
 
 \begin{lstlisting}[style=cpp, language=bash, numbers=none,
-                   caption={Python bindings}]
+                   caption={Python bindings --- virtual environment}]
+python3 -m venv venv && source venv/bin/activate
 pip install nanobind scikit-build-core
 pip install --no-build-isolation .
+\end{lstlisting}
+
+\begin{lstlisting}[style=cpp, language=bash, numbers=none,
+                   caption={Python bindings --- system-wide (Arch Linux)}]
+pip install --break-system-packages nanobind scikit-build-core
+pip install --break-system-packages --no-build-isolation .
 \end{lstlisting}
 
 \section*{Step 3 --- Minimal DCF in C++}
@@ -1686,17 +1693,25 @@ remains exact. For production-grade auditing use the C++ API directly.
   \item The C++ library and ratmoney already installed in \texttt{/usr/local}
 \end{itemize}
 
-\textbf{Option 1 --- pip (recommended):}
+\textbf{Option 1a --- pip inside a virtual environment (recommended):}
 \begin{lstlisting}[style=cpp, language=bash, numbers=none]
+python3 -m venv venv && source venv/bin/activate
 pip install nanobind scikit-build-core
 pip install --no-build-isolation .
+\end{lstlisting}
+
+\textbf{Option 1b --- pip system-wide on Arch Linux / PEP~668 systems:}
+\begin{lstlisting}[style=cpp, language=bash, numbers=none]
+pip install --break-system-packages nanobind scikit-build-core
+pip install --break-system-packages --no-build-isolation .
 \end{lstlisting}
 
 The \texttt{--no-build-isolation} flag is required so that pip uses the
 already-installed \texttt{nanobind} and \texttt{scikit-build-core} instead
 of attempting to fetch them into an isolated subprocess environment.
-This is necessary on systems with PEP~668 restrictions (e.g.\ Arch Linux);
-on standard environments it is optional.
+The \texttt{--break-system-packages} flag is additionally required on
+systems enforcing PEP~668 (e.g.\ Arch Linux) when installing outside a
+virtual environment.
 
 \textbf{Option 2 --- manual CMake build:}
 \begin{lstlisting}[style=cpp, language=bash, numbers=none]
