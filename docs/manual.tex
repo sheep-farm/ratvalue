@@ -1,0 +1,1643 @@
+%% manual.tex — ratvalue: Manual do Usuário
+%% Compile: pdflatex manual.tex  (requer pacotes padrão texlive-full)
+%% Codificação: UTF-8
+
+\documentclass[12pt, a4paper, oneside]{book}
+
+%% ── Pacotes ────────────────────────────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[colorlinks=true, linkcolor=blue!70!black,
+            citecolor=green!50!black, urlcolor=blue]{hyperref}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{tcolorbox}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{mathtools}
+\usepackage{tikz}
+\usepackage{lmodern}
+
+\tcbuselibrary{skins, breakable}
+
+%% ── Estilo de código C++ ───────────────────────────────────────────────────────
+\definecolor{cppblue}{rgb}{0.0,0.25,0.6}
+\definecolor{cppgreen}{rgb}{0.0,0.45,0.1}
+\definecolor{cppgray}{rgb}{0.45,0.45,0.45}
+\definecolor{cppbg}{rgb}{0.97,0.97,0.97}
+\definecolor{warningbg}{rgb}{1.0,0.97,0.88}
+
+\lstdefinestyle{cpp}{
+    language=C++,
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\color{cppblue}\bfseries,
+    commentstyle=\color{cppgreen}\itshape,
+    stringstyle=\color{red!70!black},
+    directivestyle=\color{purple},
+    showstringspaces=false,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{cppbg},
+    rulecolor=\color{gray!40},
+    tabsize=4,
+    xleftmargin=1em,
+    xrightmargin=0.5em,
+    numbers=left,
+    numberstyle=\tiny\color{cppgray},
+    numbersep=6pt,
+    morekeywords={int64_t, int32_t, uint8_t, __int128, expected, unexpected,
+                  string_view, vector, pair, optional},
+}
+
+%% ── Caixas especiais ───────────────────────────────────────────────────────────
+\newtcolorbox{definicao}[1]{
+  colback=blue!5, colframe=blue!50!black,
+  title={\textbf{Definição:} #1}, fonttitle=\small\bfseries,
+  breakable}
+
+\newtcolorbox{atencao}{
+  colback=warningbg, colframe=orange!80!black,
+  title={\textbf{Atenção}}, fonttitle=\small\bfseries,
+  breakable}
+
+\newtcolorbox{exemplo}[1]{
+  colback=green!5, colframe=green!50!black,
+  title={\textbf{Exemplo:} #1}, fonttitle=\small\bfseries,
+  breakable}
+
+%% ── Comandos matemáticos ───────────────────────────────────────────────────────
+\newcommand{\FCFF}{\mathrm{FCFF}}
+\newcommand{\FCFE}{\mathrm{FCFE}}
+\newcommand{\WACC}{\mathrm{WACC}}
+\newcommand{\NOPAT}{\mathrm{NOPAT}}
+\newcommand{\ROIC}{\mathrm{ROIC}}
+\newcommand{\ROE}{\mathrm{ROE}}
+\newcommand{\ERP}{\mathrm{ERP}}
+\newcommand{\CRP}{\mathrm{CRP}}
+\newcommand{\EV}{\mathrm{EV}}
+\newcommand{\IC}{\mathrm{IC}}
+\newcommand{\TV}{\mathrm{TV}}
+\newcommand{\APV}{\mathrm{APV}}
+\newcommand{\EVA}{\mathrm{EVA}}
+\newcommand{\Ke}{K_e}
+\newcommand{\Kd}{K_d}
+\newcommand{\Ku}{K_u}
+\newcommand{\Rf}{R_f}
+\newcommand{\RR}{\mathrm{RR}}
+
+%% ── Metadados ──────────────────────────────────────────────────────────────────
+\title{%
+  \textbf{ratvalue} \\[0.5em]
+  \large Manual do Usuário \\[0.3em]
+  \normalsize Framework de Valuation Damodaran em C++23
+}
+\author{%
+  LAFI --- Laboratório de Avaliação de Firmas e Investimentos \\
+  UFPel --- Universidade Federal de Pelotas
+}
+\date{Junho de 2026 \quad \texttt{v1.0}}
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\chapter*{Resumo}
+\addcontentsline{toc}{chapter}{Resumo}
+
+\textbf{ratvalue} é uma biblioteca C++23 que implementa o framework completo de
+valuation de Aswath Damodaran, desde a normalização de resultados até modelos
+especializados para startups, firmas em dificuldade e instituições financeiras.
+O projeto é construído sobre \texttt{ratmoney}, que garante aritmética monetária
+com precisão racional exata (\texttt{int64\_t} + GCD sobre \texttt{\_\_int128}).
+
+O manual cobre:
+\begin{itemize}
+  \item Fundamentos teóricos de cada modelo de valuation;
+  \item Especificação completa da API em C++23;
+  \item Exemplos numéricos verificáveis;
+  \item Exemplo real com Petrobras (PETR4) e Itaú Unibanco (ITUB4).
+\end{itemize}
+
+Pré-requisitos do leitor: familiaridade com C++17+, álgebra linear básica e
+conceitos de finanças corporativas ao nível de um curso de graduação.
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\chapter{Introdução}
+
+\section{Motivação}
+
+Modelos de valuation são o núcleo analítico de toda decisão de alocação de
+capital.  O framework de Damodaran, desenvolvido ao longo de três décadas em
+\textit{Investment Valuation} (3ª ed., 2012) e \textit{The Dark Side of
+Valuation} (3ª ed., 2018), é a referência mais rigorosa e completa disponível.
+
+Implementações existentes concentram-se em Python/Excel, que têm dois problemas
+para análise quantitativa séria:
+
+\begin{enumerate}
+  \item \textbf{Precisão numérica:} \texttt{float64} não representa frações
+        decimais exatamente. O erro acumula em cálculos encadeados.
+  \item \textbf{Performance:} Python possui GIL e overhead de boxing; Excel não
+        é versionável nem auditável como código.
+\end{enumerate}
+
+\textbf{ratvalue} resolve ambos: aritmética monetária exata via
+\texttt{ratmoney}, e performance de C++ compilado com \texttt{-O2}.
+
+\section{Escopo}
+
+A tabela~\ref{tab:modulos} lista todos os módulos implementados.
+
+\begin{table}[h]
+\centering
+\caption{Módulos do ratvalue}
+\label{tab:modulos}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Arquivo} & \textbf{Categoria} & \textbf{Conteúdo} \\
+\midrule
+\texttt{normalize} & Dados & Normalização EBIT (histórica / margem) \\
+\texttt{capm}      & Custo de capital & CAPM com CRP (mercados emergentes) \\
+\texttt{beta}      & Custo de capital & Hamada; beta bottom-up \\
+\texttt{kd}        & Custo de capital & Kd sintético via ICR → rating \\
+\texttt{wacc}      & Custo de capital & WACC \\
+\texttt{capital\_structure} & Estrutura & Estrutura ótima de capital \\
+\texttt{fcff}      & Fluxos & FCFF; projeção multi-estágio \\
+\texttt{fcfe}      & Fluxos & FCFE; DCF por equity \\
+\texttt{growth}    & Crescimento & ROIC, RR, crescimento fundamental \\
+\texttt{dcf}       & Valuation & DCF (FCFF → WACC → EV) \\
+\texttt{ddm}       & Valuation & DDM multi-estágio; H-Model \\
+\texttt{terminal}  & Valuation & TV consistente; TV por múltiplo \\
+\texttt{apv}       & Valuation & APV (MM e Miles-Ezzell) \\
+\texttt{excess\_returns} & Análise & EVA / Excess Returns \\
+\texttt{relative}  & Análise & P/L, P/VP, EV/EBITDA justificados \\
+\texttt{startup}   & Especializados & Valuation por cenários \\
+\texttt{distress}  & Especializados & Equity como opção (Merton) \\
+\texttt{bank}      & Especializados & FCFE para bancos (capital regulatório) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Dependências e Build}
+
+\textbf{Dependências:}
+\begin{itemize}
+  \item \texttt{ratmoney} $\geq$ 0.1 (instalado em \texttt{/usr/local})
+  \item GCC $\geq$ 13 ou Clang $\geq$ 17 (C++23)
+  \item CMake $\geq$ 3.20
+  \item GTest (para os testes)
+\end{itemize}
+
+\begin{lstlisting}[style=cpp, language=bash, numbers=none,
+                   caption={Compilação e execução dos testes}]
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+ctest --test-dir build --output-on-failure
+\end{lstlisting}
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\chapter{Infraestrutura: ratmoney e tipos internos}
+
+\section{ratmoney: aritmética monetária exata}
+
+Toda unidade monetária em \textbf{ratvalue} é representada pelo tipo
+\texttt{ratmoney::Currency}, que armazena:
+
+\begin{itemize}
+  \item \texttt{units}: contagem em menor denominação (\emph{centavos},
+        para BRL e USD com \texttt{precision=2});
+  \item \texttt{rate}: valor de 1 unidade desta moeda em unidades de uma
+        moeda-base implícita (tipo \texttt{Rational});
+  \item \texttt{description}: nome, símbolo e precisão decimal.
+\end{itemize}
+
+O tipo \texttt{ratmoney::Rational} representa um número racional $p/q$ na
+forma canônica: $q > 0$, $\gcd(|p|, q) = 1$.  Toda aritmética usa
+\texttt{\_\_int128} como intermediário, eliminando overflow silencioso.
+
+\begin{lstlisting}[style=cpp, caption={Criação de moedas no ratvalue}]
+ratmoney::CurrencyDescription BRL{"BRL", "R$", 2};
+ratmoney::Rational UNIT_RATE{1, 1};
+
+// R$1 bilhão = 1e11 centavos
+Currency B(int64_t bilhoes) {
+    return Currency{bilhoes * 100'000'000'000LL, UNIT_RATE, BRL};
+}
+
+Currency ebit = B(145);   // R$145 bilhoes
+\end{lstlisting}
+
+\begin{atencao}
+A identidade de denominação é determinada por \texttt{CurrencyDescription}.
+Dois objetos \texttt{Currency} só podem ser somados ou comparados se tiverem
+a \emph{mesma descrição}.  O campo \texttt{rate} serve para \emph{conversão
+entre moedas}, não para identificar a denominação.
+ratvalue valida consistência de moeda em todas as funções relevantes e retorna
+\texttt{ValuationError::CurrencyMismatch} em caso de violação.
+\end{atencao}
+
+\section{types.h: erros e projeção}
+
+\begin{lstlisting}[style=cpp, caption={Tipos fundamentais do ratvalue}]
+enum class ValuationError {
+    InvalidInput,     // entrada inválida (negativa, zero onde proibido...)
+    WACCLEGrowth,     // WACC <= g: denominador de Gordon seria <= 0
+    Overflow,         // overflow aritmético em Rational
+    MoneyError,       // CurrencyError do ratmoney
+    CurrencyMismatch, // inputs monetários em denominações diferentes
+};
+
+struct ProjectionStage {
+    ratmoney::Rational growth_rate;
+    int                periods;   // anos neste estágio
+};
+\end{lstlisting}
+
+Todas as funções do ratvalue retornam \texttt{std::expected<T, ValuationError>},
+forçando tratamento explícito de erros em tempo de compilação.
+
+\section{detail.h: aritmética racional interna}
+
+O cabeçalho interno \texttt{detail.h} expõe helpers que implementam as
+operações $+$, $-$, $\times$, $\div$ sobre \texttt{Rational} com
+intermediários \texttt{\_\_int128}:
+
+\begin{lstlisting}[style=cpp]
+namespace ratvalue::detail {
+    expected<Rational, ValuationError> r_add(Rational a, Rational b);
+    expected<Rational, ValuationError> r_sub(Rational a, Rational b);
+    expected<Rational, ValuationError> r_mul(Rational a, Rational b);
+    expected<Rational, ValuationError> r_div(Rational a, Rational b);
+    expected<Rational, ValuationError> one_plus(Rational r); // 1 + r
+    expected<Rational, ValuationError> make_rational(__int128 n, __int128 d);
+
+    bool   same_currency(const Currency& a, const Currency& b);
+    double to_double(const Currency& c);   // unidades maiores (ex: reais)
+    expected<Currency, ValuationError>
+        make_currency_from_double(double v, Rational rate,
+                                  const CurrencyDescription& desc);
+}
+\end{lstlisting}
+
+\begin{atencao}
+\texttt{detail.h} é um cabeçalho \emph{interno}, não instalado.
+Código cliente não deve incluí-lo diretamente.
+\end{atencao}
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\chapter{Normalização de Resultados}
+
+\section{Teoria}
+
+Firmas cíclicas (petróleo, mineração, siderurgia, agro) apresentam EBIT
+volátil que distorce qualquer DCF baseado no ano mais recente.  Damodaran
+(cap.~8) recomenda normalizar antes de valuar, usando uma das duas abordagens:
+
+\begin{description}
+  \item[Média histórica]
+    Calcula a média aritmética do EBIT dos últimos $N$ anos ($N \geq 2$),
+    capturando o ``EBIT do ciclo médio'':
+    \[
+      EBIT_{\text{norm}} = \frac{1}{N} \sum_{i=1}^{N} EBIT_i
+    \]
+
+  \item[Margem normalizada]
+    Aplica uma margem operacional histórica (ou setorial) sobre a receita
+    atual.  Útil quando a receita é estável mas a margem oscila:
+    \[
+      EBIT_{\text{norm}} = \text{Receita atual} \times \text{Margem normalizada}
+    \]
+\end{description}
+
+\section{API}
+
+\begin{lstlisting}[style=cpp]
+enum class NormalizationMethod {
+    HistoricalAverage,  // método 1
+    NormalizedMargin,   // método 2
+};
+
+struct NormalizationInputs {
+    NormalizationMethod             method;
+    std::vector<ratmoney::Currency> historical_ebit;   // >= 2 para Average
+    ratmoney::Currency              current_revenue;    // para Margin
+    ratmoney::Rational              normalized_margin;  // para Margin
+};
+
+expected<Currency, ValuationError>
+normalize_ebit(const NormalizationInputs& inputs);
+\end{lstlisting}
+
+\begin{exemplo}{Petrobras — média histórica do ciclo}
+\begin{lstlisting}[style=cpp, numbers=none]
+auto result = normalize_ebit(NormalizationInputs{
+    .method = NormalizationMethod::HistoricalAverage,
+    .historical_ebit = {B(80), B(95), B(145), B(165), B(145)},
+    // EBIT 2019–2023 em R$ bilhões
+    .current_revenue = B(500),  // nao usado neste metodo
+    .normalized_margin = {0, 1},
+});
+// result->units() / 1e11 = R$126B (média)
+\end{lstlisting}
+\end{exemplo}
+
+\section{Observações}
+
+A aritmética usa \texttt{Currency::add} acumulado e \texttt{Currency::scale}
+com fator $\{1, N\}$.  O arredondamento é \textit{HalfEven} (padrão bancário),
+de modo que a soma exata é preservada e o erro de arredondamento é de no máximo
+1 centavo.
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\chapter{Custo de Capital}
+
+\section{CAPM com Risco-País}
+\label{sec:capm}
+
+\subsection{Modelo}
+
+Em mercados emergentes, Damodaran (\textit{Investment Valuation}, cap.~7)
+estende o CAPM adicionando um prêmio de risco-país ponderado pela exposição
+$\lambda$ da empresa:
+
+\begin{equation}
+  \Ke = \Rf + \beta \cdot \ERP_{\text{maduro}} + \lambda \cdot \CRP
+  \label{eq:capm_crp}
+\end{equation}
+
+Onde:
+\begin{itemize}
+  \item $\Rf$: taxa livre de risco global (\emph{T-Bond 10Y} americano,
+        expurgado do componente de inflação diferencial se necessário);
+  \item $\ERP_{\text{maduro}}$: prêmio de risco do mercado de referência
+        (geralmente EUA; Damodaran publica estimativas anuais);
+  \item $\CRP$: prêmio de risco-país, calculado como spread soberano
+        $\times$ ($\sigma_{\text{ações}} / \sigma_{\text{bônus}}$);
+  \item $\lambda$: exposição da empresa ao risco-país.
+        $\lambda = 1$ para empresas com receitas inteiramente domésticas;
+        $\lambda < 1$ para exportadoras ou multinacionais.
+\end{itemize}
+
+\begin{definicao}{Country Risk Premium (CRP)}
+  \[
+    \CRP = \text{Spread soberano} \times
+           \frac{\sigma_{\text{ações mercado emergente}}}
+                {\sigma_{\text{bônus soberano}}}
+  \]
+  Para o Brasil em 2024: spread EMBI+ $\approx 2\%$;
+  fator de volatilidade $\approx 1{,}5$; $\CRP \approx 3\%$.
+\end{definicao}
+
+\subsection{API}
+
+\begin{lstlisting}[style=cpp]
+struct CAPMInputs {
+    Rational risk_free_rate;
+    Rational beta;
+    Rational equity_risk_premium;              // ERP mercado maduro
+    Rational country_risk_premium{0, 1};       // CRP (padrão: 0)
+    Rational lambda{1, 1};                     // exposição país (padrão: 1)
+};
+
+expected<Rational, ValuationError>
+cost_of_equity(const CAPMInputs& inputs);
+\end{lstlisting}
+
+Todo o cálculo é feito em aritmética racional exata.  Para
+$\Rf = 5\% = \frac{1}{20}$, $\beta = 1{,}30 = \frac{13}{10}$,
+$\ERP = 7\% = \frac{7}{100}$, $\CRP = 3\% = \frac{3}{100}$, $\lambda = 1$:
+
+\[
+  \Ke
+  = \tfrac{1}{20} + \tfrac{13}{10} \cdot \tfrac{7}{100} + 1 \cdot \tfrac{3}{100}
+  = \tfrac{50}{1000} + \tfrac{91}{1000} + \tfrac{30}{1000}
+  = \tfrac{171}{1000} = 17{,}1\%
+\]
+
+\section{Beta: Hamada e Bottom-Up}
+
+\subsection{Equação de Hamada}
+
+A alavancagem financeira amplifica o risco sistemático:
+
+\begin{equation}
+  \beta_L = \beta_U \cdot \left[1 + (1-t) \cdot \frac{D}{E}\right]
+  \label{eq:hamada}
+\end{equation}
+
+Inversamente:
+\begin{equation}
+  \beta_U = \frac{\beta_L}{1 + (1-t) \cdot D/E}
+  \label{eq:hamada_inv}
+\end{equation}
+
+\subsection{Beta Bottom-Up}
+
+O beta histórico (regressão de retornos) é ruidoso e reflete a estrutura de
+capital passada.  Damodaran recomenda o \emph{beta bottom-up}:
+
+\begin{enumerate}
+  \item Coletar $\beta_L$ de $n$ empresas comparáveis (mesmo setor);
+  \item Desalavancar cada comparável via eq.~\eqref{eq:hamada_inv};
+  \item Calcular a média: $\bar\beta_U = n^{-1}\sum_i \beta_{U,i}$;
+  \item Re-alavancar para a estrutura-alvo via eq.~\eqref{eq:hamada}.
+\end{enumerate}
+
+\subsection{API}
+
+\begin{lstlisting}[style=cpp]
+// Alavancar
+expected<Rational, ValuationError>
+lever_beta(Rational unlevered_beta, Rational debt_to_equity, Rational tax_rate);
+
+// Desalavancar
+expected<Rational, ValuationError>
+unlever_beta(Rational levered_beta, Rational debt_to_equity, Rational tax_rate);
+
+struct BottomUpBetaInputs {
+    vector<Rational> comparable_levered_betas;
+    vector<Rational> comparable_debt_to_equity;
+    Rational         comparable_tax_rate;
+    Rational         target_debt_to_equity;
+    Rational         target_tax_rate;
+};
+
+expected<Rational, ValuationError>
+bottom_up_beta(const BottomUpBetaInputs& inputs);
+\end{lstlisting}
+
+\begin{atencao}
+A média dos $\beta_U$ em \texttt{bottom\_up\_beta} é calculada em
+\texttt{double}, pois betas de mercado são estimativas sem precisão exata.
+A re-alavancagem final retorna \texttt{Rational} com 4 casas decimais.
+\end{atencao}
+
+\section{Kd Sintético}
+\label{sec:kd_sint}
+
+\subsection{Metodologia}
+
+Empresas sem bônus negociados não têm Kd observável.  Damodaran propõe
+estimá-lo a partir do \emph{índice de cobertura de juros} (ICR):
+
+\[
+  \text{ICR} = \frac{\text{EBIT}}{\text{Despesa Financeira}}
+  \quad\longrightarrow\quad
+  \text{rating sintético}
+  \quad\longrightarrow\quad
+  \Kd = \Rf + \text{spread}(\text{rating})
+\]
+
+A tabela de ICR $\to$ rating é publicada anualmente em
+\url{https://pages.stern.nyu.edu/~adamodar/}.
+O ratvalue implementa as tabelas de 2023 para \emph{large cap} e
+\emph{small cap} (thresholds mais exigentes para empresas menores).
+
+\subsection{Tabela resumida (large cap)}
+
+\begin{table}[h]
+\centering
+\caption{ICR → Rating → Spread (large cap, Damodaran 2023)}
+\label{tab:rating}
+\begin{tabular}{ccr}
+\toprule
+\textbf{ICR mínimo} & \textbf{Rating} & \textbf{Spread (bps)} \\
+\midrule
+$> 8{,}50$ & Aaa/AAA & 63 \\
+$6{,}50$   & Aa2/AA  & 78 \\
+$5{,}50$   & A1/A+   & 98 \\
+$4{,}25$   & A2/A    & 108 \\
+$3{,}00$   & A3/A--  & 122 \\
+$2{,}50$   & Baa2/BBB & 156 \\
+$2{,}25$   & Ba1/BB+ & 200 \\
+$2{,}00$   & Ba2/BB  & 240 \\
+$1{,}75$   & B1/B+   & 350 \\
+$1{,}50$   & B2/B    & 375 \\
+$1{,}25$   & B3/B--  & 500 \\
+$0{,}80$   & Caa/CCC & 600 \\
+$0{,}65$   & Ca2/CC  & 700 \\
+$0{,}20$   & C2/C    & 800 \\
+$< 0{,}20$ & D2/D    & 1200 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{API}
+
+\begin{lstlisting}[style=cpp]
+enum class CreditRating : uint8_t {
+    AAA, AA, A_plus, A, A_minus, BBB, BB_plus, BB,
+    B_plus, B, B_minus, CCC, CC, C, D
+};
+
+struct SyntheticKdInputs {
+    Currency ebit;
+    Currency interest_expense;
+    Rational risk_free_rate;
+    bool     large_firm{true};
+};
+
+struct SyntheticKdResult {
+    Rational     cost_of_debt;      // Kd = Rf + spread (Rational exato)
+    Rational     default_spread;
+    CreditRating rating;
+    double       interest_coverage;
+};
+
+expected<SyntheticKdResult, ValuationError>
+synthetic_cost_of_debt(const SyntheticKdInputs& inputs);
+
+// versão direta (para o otimizador interno)
+expected<SyntheticKdResult, ValuationError>
+synthetic_cost_of_debt_from_icr(double icr, Rational rf, bool large_firm);
+\end{lstlisting}
+
+\section{WACC}
+
+\subsection{Fórmula}
+
+\begin{equation}
+  \WACC = \frac{E}{V} \Ke + \frac{D}{V} \Kd (1-t)
+\end{equation}
+
+Onde $V = E + D$.
+
+\subsection{API}
+
+\begin{lstlisting}[style=cpp]
+struct WACCInputs {
+    Rational equity_weight;   // E/V
+    Rational debt_weight;     // D/V
+    Rational cost_of_equity;  // Ke
+    Rational cost_of_debt;    // Kd
+    Rational tax_rate;        // t
+};
+
+expected<Rational, ValuationError>
+compute_wacc(const WACCInputs& inputs);
+\end{lstlisting}
+
+Toda a aritmética é racional exata.  Para os parâmetros do Exemplo Petrobras:
+$E_w = 2/3$, $\Ke = 4629/40000$, $D_w = 1/3$, $\Kd = 578/10000$, $t = 17/50$:
+\[
+  \WACC = \frac{2}{3} \cdot \frac{4629}{40000}
+        + \frac{1}{3} \cdot \frac{578}{10000} \cdot \frac{33}{50}
+        = \frac{44933}{500000} \approx 8{,}99\%
+\]
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\chapter{Fluxo de Caixa Livre}
+
+\section{FCFF — Free Cash Flow to Firm}
+
+\subsection{Fórmula}
+
+\begin{equation}
+  \FCFF = \EBIT(1-t) + D\&A - \text{CapEx} - \Delta CGN
+  \label{eq:fcff}
+\end{equation}
+
+Onde $\Delta CGN$ é a variação no capital de giro não caixa (Damodaran usa
+$\Delta \text{NWC} = \Delta \text{CG}$).
+
+\subsection{API}
+
+\begin{lstlisting}[style=cpp]
+struct FCFFInputs {
+    Currency ebit;
+    Rational tax_rate;
+    Currency depreciation_amortization;
+    Currency capex;
+    Currency delta_nwc;
+};
+
+expected<Currency, ValuationError>
+compute_fcff(const FCFFInputs& inputs);
+
+struct FCFFProjection {
+    Currency                    base_fcff;
+    std::vector<ProjectionStage> stages;
+};
+
+// Retorna [FCFF_1, FCFF_2, ..., FCFF_N] (base não incluído)
+expected<std::vector<Currency>, ValuationError>
+project_fcff(const FCFFProjection& proj);
+\end{lstlisting}
+
+A projeção é exata: cada período aplica \texttt{Currency::scale} com fator
+$(1+g)$ representado como \texttt{Rational}.
+
+\section{FCFE — Free Cash Flow to Equity}
+
+\subsection{Fórmula}
+
+\begin{equation}
+  \FCFE = NI - (1-\delta)(\text{CapEx} - D\&A + \Delta CGN) + \Delta D
+  \label{eq:fcfe}
+\end{equation}
+
+Onde $\delta = D/(D+E)$ é o \emph{debt ratio}.  A interpretação:
+o acionista financia apenas a parcela $(1-\delta)$ do reinvestimento líquido;
+o restante é coberto por nova dívida.
+
+\subsection{Diferença conceptual: FCFF vs. FCFE}
+
+\begin{table}[h]
+\centering
+\caption{Comparação FCFF e FCFE}
+\begin{tabular}{lll}
+\toprule
+\textbf{Dimensão} & \textbf{FCFF} & \textbf{FCFE} \\
+\midrule
+Base & EBIT (pré-juros) & Lucro Líquido (pós-juros) \\
+Desconto & WACC & $\Ke$ \\
+Resultado & Enterprise Value & Equity Value (direto) \\
+Alavancagem & Capturada no WACC & Capturada no FCFE \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{atencao}
+FCFF e FCFE produzem o mesmo valor de equity quando os inputs são consistentes
+(mesma estrutura de capital implícita).  Discrepâncias indicam inconsistência
+nas hipóteses, não erros no código.
+\end{atencao}
+
+\subsection{API}
+
+\begin{lstlisting}[style=cpp]
+struct FCFEInputs {
+    Currency net_income;
+    Rational debt_ratio;                  // delta = D/(D+E)
+    Currency capex;
+    Currency depreciation_amortization;
+    Currency delta_nwc;
+    Currency net_new_debt;               // pode ser negativo
+};
+
+expected<Currency, ValuationError>
+compute_fcfe(const FCFEInputs& inputs);
+
+struct FCFEDCFInputs {
+    std::vector<Currency> projected_fcfe;
+    Rational              cost_of_equity;
+    Rational              terminal_growth;
+    int64_t               shares_outstanding;
+};
+
+struct FCFEDCFResult {
+    Currency equity_value;
+    Currency equity_value_per_share;
+    Currency pv_fcfe;
+    Currency terminal_value;
+    Currency pv_terminal_value;
+};
+
+expected<FCFEDCFResult, ValuationError>
+compute_fcfe_dcf(const FCFEDCFInputs& inputs);
+\end{lstlisting}
+
+\section{Crescimento Fundamental}
+\label{sec:growth}
+
+\subsection{Teoria}
+
+Damodaran insiste que hipóteses de crescimento devem ser \emph{ancoradas} em
+fundamentos.  Crescimento ``gratuito'' (sem reinvestimento) é um erro comum
+que infla artificialmente o valor.
+
+\begin{equation}
+  g_{\text{firma}} = \ROIC \times \RR
+  \label{eq:g_firma}
+\end{equation}
+
+\begin{equation}
+  g_{\text{equity}} = \ROE \times (1 - \text{payout})
+  \label{eq:g_equity}
+\end{equation}
+
+Onde:
+\[
+  \ROIC = \frac{\NOPAT}{\IC} \qquad
+  \RR   = \frac{\text{CapEx} - D\&A + \Delta CGN}{\NOPAT}
+\]
+
+\subsection{API}
+
+\begin{lstlisting}[style=cpp]
+// ROIC = NOPAT / Invested Capital
+struct ROICInputs { Currency nopat; Currency invested_capital; };
+expected<Rational, ValuationError> compute_roic(const ROICInputs&);
+
+// RR = (CapEx - DA + dNWC) / NOPAT
+struct ReinvestmentRateInputs {
+    Currency capex, depreciation_amortization, delta_nwc, nopat;
+};
+expected<Rational, ValuationError>
+compute_reinvestment_rate(const ReinvestmentRateInputs&);
+
+// g = ROIC x RR
+expected<Rational, ValuationError>
+fundamental_growth_firm(Rational roic, Rational reinvestment_rate);
+
+// g = ROE x retention
+expected<Rational, ValuationError>
+fundamental_growth_equity(Rational roe, Rational retention_ratio);
+\end{lstlisting}
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\chapter{DCF — Desconto de Fluxos de Caixa}
+
+\section{Modelo Padrão: FCFF e WACC}
+
+\subsection{Estrutura multi-estágio}
+
+O DCF padrão de Damodaran divide o horizonte em dois estágios:
+
+\begin{enumerate}
+  \item \textbf{Período explícito} ($t = 1, \ldots, N$):
+        FCFFs projetados descontados individualmente.
+  \item \textbf{Perpetuidade estável} ($t > N$):
+        valor terminal (TV) calculado via Gordon Growth.
+\end{enumerate}
+
+\begin{align}
+  \EV
+  &= \sum_{t=1}^{N} \frac{\FCFF_t}{(1+\WACC)^t}
+   + \frac{\TV_N}{(1+\WACC)^N}
+  \label{eq:dcf_ev}
+  \\[4pt]
+  \TV_N
+  &= \frac{\FCFF_N \cdot (1 + g)}{(\WACC - g)}
+  \label{eq:gordon}
+  \\[4pt]
+  \text{Equity} &= \EV - \text{Dívida Líquida}
+  \\[4pt]
+  P_{\text{ação}} &= \frac{\text{Equity}}{n_{\text{ações}}}
+\end{align}
+
+\subsection{Implementação: double para desconto, Rational para TV}
+
+\begin{atencao}
+O fator de desconto $(1+r)^{-t}$ é irracional para $t > 1$ na maioria dos
+casos.  O ratvalue usa \texttt{double} \emph{apenas} para as potências; todas
+as demais operações são racionais exatas.  Em particular, o multiplicador do
+TV é um \texttt{Rational} exato:
+\[
+  \TV_{\text{mul}} = \frac{(1+g)/g_{\text{den}}}{(\WACC - g)}
+  = \frac{(g_{\text{den}} + g_{\text{num}}) \cdot \WACC_{\text{den}}}
+         {\WACC_{\text{num}} \cdot g_{\text{den}} - g_{\text{num}} \cdot \WACC_{\text{den}}}
+\]
+\end{atencao}
+
+\subsection{API}
+
+\begin{lstlisting}[style=cpp]
+struct DCFInputs {
+    std::vector<Currency> projected_fcff;
+    Rational              wacc;
+    Rational              terminal_growth;
+    Currency              net_debt;
+    int64_t               shares_outstanding;
+};
+
+struct DCFResult {
+    Currency enterprise_value;
+    Currency equity_value;
+    Currency equity_value_per_share;
+    Currency pv_fcff;
+    Currency terminal_value;      // TV sem descontar (Rational exato)
+    Currency pv_terminal_value;
+};
+
+expected<DCFResult, ValuationError>
+compute_dcf(const DCFInputs& inputs);
+\end{lstlisting}
+
+\section{DDM — Dividend Discount Model}
+
+O DDM substitui FCFF por dividendos e desconta a $\Ke$:
+
+\begin{lstlisting}[style=cpp]
+struct DDMInputs {
+    Currency                    base_dividend_per_share;
+    std::vector<ProjectionStage> stages;
+    Rational                    cost_of_equity;
+    Rational                    stable_growth;
+};
+
+expected<DDMResult, ValuationError>
+compute_ddm(const DDMInputs& inputs);
+\end{lstlisting}
+
+\section{H-Model (Fuller \& Hsia, 1984)}
+
+O H-Model é uma fórmula fechada para crescimento que \emph{declina
+linearmente} de $g_H$ para $g_L$ ao longo de $2H$ anos:
+
+\begin{equation}
+  P = \frac{D_0 \cdot \left[(1+g_L) + H \cdot (g_H - g_L)\right]}{\Ke - g_L}
+  \label{eq:hmodel}
+\end{equation}
+
+Todo o cálculo é \emph{exato} em aritmética racional — não há desconto
+temporal envolvido.
+
+\begin{lstlisting}[style=cpp]
+struct HModelInputs {
+    Currency base_dividend;
+    Rational high_growth;     // g_H
+    Rational stable_growth;   // g_L
+    Rational half_life;       // H em anos (ex: {5,1})
+    Rational cost_of_equity;
+};
+
+struct HModelResult {
+    Currency intrinsic_value;
+    Rational tv_multiplier;   // para auditoria
+};
+
+expected<HModelResult, ValuationError>
+compute_h_model(const HModelInputs& inputs);
+\end{lstlisting}
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\chapter{Valor Terminal}
+
+\section{Consistência com ROIC}
+
+\subsection{O problema do Gordon padrão}
+
+O TV pelo Gordon Growth implica uma taxa de reinvestimento:
+\[
+  \RR_{\text{impl}} = \frac{g}{\ROIC_{\text{estável}}}
+\]
+
+Se o analista assume $g = 3\%$ mas $\ROIC_{\text{estável}} = 8\%$, então
+$\RR_{\text{impl}} = 37{,}5\%$.  Se ele projetou os FCFFs com $\RR = 30\%$,
+há uma descontinuidade no terminal que infla o TV.
+
+\subsection{TV consistente (Damodaran cap.~12)}
+
+\begin{equation}
+  \TV = \frac{\NOPAT_{\text{estável}} \cdot (1 - g/\ROIC_{\text{estável}})}{
+              \WACC - g}
+  \label{eq:tv_consistente}
+\end{equation}
+
+Usa o NOPAT do período terminal como base, derivando o FCFF estável pela RR
+consistente com o ROIC assumido.
+
+\subsection{Auditoria de consistência}
+
+\begin{lstlisting}[style=cpp]
+struct TerminalConsistency {
+    Rational implied_reinvestment_rate;  // g / ROIC_estavel
+    Rational return_spread;              // ROIC_estavel - WACC
+    bool     value_creating;             // ROIC > WACC
+    bool     reinvestment_feasible;      // 0 <= g/ROIC <= 1
+};
+
+TerminalConsistency check_terminal_consistency(
+    Rational wacc, Rational terminal_growth, Rational terminal_roic);
+
+struct ConsistentTVInputs {
+    Currency stable_nopat;
+    Rational wacc;
+    Rational terminal_growth;
+    Rational terminal_roic;
+};
+
+expected<Currency, ValuationError>
+consistent_terminal_value(const ConsistentTVInputs& inputs);
+\end{lstlisting}
+
+\begin{atencao}
+Quando $\ROIC_{\text{estável}} < \WACC$, o TV ainda é positivo mas a firma
+destrói valor na perpetuidade (\texttt{value\_creating = false}).
+Isso é economicamente válido; o modelo não rejeita esse caso.
+\end{atencao}
+
+\section{TV por Múltiplo}
+
+Alternativa ao Gordon Growth, âncora o TV em um múltiplo de mercado observado:
+
+\begin{equation}
+  \TV = \text{EBITDA}_{N} \times \text{EV/EBITDA}_{\text{setor}}
+\end{equation}
+
+\begin{lstlisting}[style=cpp]
+expected<Currency, ValuationError>
+terminal_value_by_multiple(Currency terminal_ebitda,
+                            Rational ev_ebitda_multiple);
+\end{lstlisting}
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\chapter{APV — Adjusted Present Value}
+
+\section{Motivação}
+
+O \APV\ separa explicitamente o valor operacional do benefício fiscal:
+
+\begin{equation}
+  \APV = V_U + PV(\text{Tax Shields})
+\end{equation}
+
+Onde $V_U$ é o valor da firma \emph{sem alavancagem}, obtido descontando
+os FCFFs ao custo do equity desalavancado $\Ku$:
+
+\[
+  \Ku = \Rf + \beta_U \cdot \ERP + \lambda \cdot \CRP
+\]
+
+O \APV\ é preferível ao WACC quando a estrutura de capital varia ao longo
+do tempo (LBOs, recapitalizações, projetos com cronograma de amortização).
+
+\section{Modigliani-Miller (1963): dívida permanente}
+
+Para dívida permanente e tax shields com risco zero (desconto a $\Rf$):
+
+\begin{equation}
+  PV(\text{TS})_{\text{MM}} = t \cdot D
+  \label{eq:ts_mm}
+\end{equation}
+
+\begin{lstlisting}[style=cpp]
+struct APVInputs {
+    std::vector<Currency> projected_fcff;
+    Rational              terminal_growth;
+    Rational              unlevered_cost_of_equity;  // Ku
+    Currency              debt_market_value;          // D
+    Rational              tax_rate;                  // t
+    Currency              net_debt;
+    int64_t               shares_outstanding;
+};
+
+expected<APVResult, ValuationError>
+compute_apv(const APVInputs& inputs);
+\end{lstlisting}
+
+\section{Miles-Ezzell (1980): dívida rebalanceada}
+
+Quando a firma mantém um $D/V$ constante (rebalanceia a cada período), os
+tax shields têm o risco dos ativos e devem ser descontados a $\Ku$, exceto
+o primeiro período (conhecido com certeza):
+
+\begin{equation}
+  PV(\text{TS})_{\text{ME}}
+  = \frac{t \cdot \Kd \cdot D \cdot (1 + \Ku)}{(1 + \Kd)(\Ku - g)}
+  \label{eq:ts_me}
+\end{equation}
+
+O \textbf{multiplicador de Miles-Ezzell} é calculado em aritmética racional
+exata via \texttt{detail::r\_mul} e \texttt{detail::r\_div}.
+
+\begin{lstlisting}[style=cpp]
+struct APVMilesEzzellInputs {
+    // ... todos os campos de APVInputs, mais:
+    Rational cost_of_debt;   // Kd (necessario para formula ME)
+};
+
+expected<APVResult, ValuationError>
+compute_apv_miles_ezzell(const APVMilesEzzellInputs& inputs);
+\end{lstlisting}
+
+\begin{exemplo}{Comparação MM vs. ME (Petrobras)}
+$D = \text{R\$}250B$, $t = 34\%$, $\Kd = 5{,}78\%$, $\Ku \approx 11{,}57\%$, $g = 1{,}5\%$:
+\[
+  PV(\text{TS})_{\text{MM}} = 0{,}34 \times 250 = \text{R\$}85B
+\]
+\[
+  PV(\text{TS})_{\text{ME}}
+  = \frac{0{,}34 \times 0{,}0578 \times 250 \times 1{,}1157}{1{,}0578 \times 0{,}1007}
+  \approx \text{R\$}51B
+\]
+O MM superestima o benefício fiscal em $\approx 40\%$ neste caso.
+\end{exemplo}
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\chapter{EVA e Retornos em Excesso}
+
+\section{Fundamento teórico}
+
+O modelo de \emph{excess returns} (Damodaran, cap.~13) decompõe o valor
+da firma em:
+
+\begin{equation}
+  V = \IC + PV(\EVA)
+  \label{eq:eva_decomp}
+\end{equation}
+
+Onde $\EVA_t = (\ROIC_t - \WACC) \times \IC_t$ e $\IC_t$ cresce com o
+reinvestimento.  Para o estágio estável (single-stage, Gordon):
+
+\begin{equation}
+  V = \IC \cdot \frac{\ROIC - g}{\WACC - g}
+  \label{eq:eva_single}
+\end{equation}
+
+\textbf{Equivalência com DCF:} quando os inputs são consistentes
+($g = \ROIC \times \RR$ e $\FCFF = \NOPAT(1-\RR)$), as equações
+\eqref{eq:dcf_ev} e \eqref{eq:eva_decomp} produzem o mesmo $V$.
+A decomposição do \EVA\ revela o \emph{valor dos ativos existentes} vs.\
+o \emph{valor do crescimento futuro}.
+
+\section{Interpretação econômica}
+
+\begin{itemize}
+  \item $\ROIC > \WACC$: a firma cria valor acima do custo de capital;
+        $PV(\EVA) > 0$.
+  \item $\ROIC = \WACC$: crescimento \emph{neutro}; $V = \IC$.
+  \item $\ROIC < \WACC$: cada real investido destrói valor; $PV(\EVA) < 0$.
+\end{itemize}
+
+\section{API}
+
+\begin{lstlisting}[style=cpp]
+struct SingleStageERInputs {
+    Currency invested_capital;
+    Rational roic;
+    Rational wacc;
+    Rational terminal_growth;
+};
+
+struct ExcessReturnsResult {
+    Currency firm_value;
+    Currency asset_value;        // = IC
+    Currency pv_excess_returns;  // PV(EVA)
+};
+
+expected<ExcessReturnsResult, ValuationError>
+excess_returns_value(const SingleStageERInputs& inputs);
+
+struct MultiStageERInputs {
+    Currency                    base_invested_capital;
+    Rational                    roic;
+    std::vector<ProjectionStage> stages;
+    Rational                    wacc;
+    Rational                    terminal_roic;
+    Rational                    terminal_growth;
+};
+
+expected<ExcessReturnsResult, ValuationError>
+excess_returns_multistage(const MultiStageERInputs& inputs);
+\end{lstlisting}
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\chapter{Múltiplos Justificados}
+
+\section{Fundamento}
+
+Múltiplos de mercado (P/L, P/VP, EV/EBITDA) são frequentemente interpretados
+sem referência aos fundamentos.  Damodaran (cap.~17--20) deriva o
+\emph{múltiplo justificado}: o valor que seria correto dado o crescimento,
+a rentabilidade e o custo de capital da firma.
+
+\begin{align}
+  P/L &= \frac{\text{payout}}{\Ke - g_{\text{equity}}} \label{eq:pe} \\[4pt]
+  P/VP &= \ROE \times \frac{\text{payout}}{\Ke - g_{\text{equity}}} \label{eq:pb} \\[4pt]
+  EV/EBITDA &= \frac{(1-t)(1-\RR)}{\WACC - g} \label{eq:ev_ebitda}
+\end{align}
+
+Onde $g_{\text{equity}} = \ROE \times (1 - \text{payout})$ e
+$\RR = g/\ROIC$ (taxa de reinvestimento da firma).
+
+\section{API}
+
+\begin{lstlisting}[style=cpp]
+struct JustifiedMultiplesInputs {
+    Rational cost_of_equity;
+    Rational wacc;
+    Rational roe;
+    Rational payout_ratio;
+    Rational roic;
+    Rational tax_rate;
+};
+
+struct JustifiedMultiples {
+    Rational pe_ratio;
+    Rational pb_ratio;
+    Rational ev_ebitda;
+    Rational g_equity;
+    Rational implied_reinvestment;
+};
+
+expected<JustifiedMultiples, ValuationError>
+compute_justified_multiples(const JustifiedMultiplesInputs& inputs);
+\end{lstlisting}
+
+\begin{exemplo}{Petrobras — múltiplos justificados (ROE normalizado = 15\%)}
+Com $\Ke = 11{,}57\%$, $\WACC = 8{,}99\%$, $\ROE_{\text{norm}} = 15\%$,
+payout $= 60\%$, $\ROIC = 16{,}63\%$, $t = 34\%$:
+\[
+  g = 15\% \times 40\% = 6\%
+\]
+\[
+  P/L = \frac{0{,}60}{0{,}1157 - 0{,}06} = 10{,}8\times
+  \qquad
+  P/VP = 0{,}15 \times 10{,}8 = 1{,}6\times
+  \qquad
+  EV/EBITDA = 14{,}1\times
+\]
+\end{exemplo}
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\chapter{Estrutura Ótima de Capital}
+
+\section{Algoritmo}
+
+O custo de capital mínimo maximiza o valor da firma.  O ratvalue varre
+razões de endividamento $d \in \{0/N, 1/N, \ldots, (N-1)/N\}$ e para
+cada ponto:
+
+\begin{enumerate}
+  \item Calcula $D/E = d/(1-d)$ como \texttt{Rational};
+  \item Alavancar $\beta_U \to \beta_L$ via Hamada (eq.~\ref{eq:hamada});
+  \item Calcula $\Ke$ via CAPM (eq.~\ref{eq:capm_crp});
+  \item Itera $\Kd$ a partir do ICR:
+        \begin{enumerate}
+          \item $\text{Interesse} = D \times \Kd$
+          \item $\text{ICR} = \text{EBIT} / \text{Interesse}$
+          \item $\Kd \leftarrow \Rf + \text{spread}(\text{ICR})$
+          \item Repetir até convergência ($< 10^{-9}$, usualmente 2--5 iterações)
+        \end{enumerate}
+  \item Calcula $\WACC$ exato como \texttt{Rational}.
+\end{enumerate}
+
+O ótimo é o ponto de mínimo $\WACC$.
+
+\section{API}
+
+\begin{lstlisting}[style=cpp]
+struct OptimalCapitalStructureInputs {
+    Rational  unlevered_beta;
+    Rational  risk_free_rate;
+    Rational  equity_risk_premium;
+    Rational  country_risk_premium{0, 1};
+    Rational  lambda{1, 1};
+    Rational  tax_rate;
+    Currency  ebit;       // para calcular ICR
+    Currency  firm_value; // E+D (base para D = d * FV)
+    int       steps{10};
+    bool      large_firm{true};
+};
+
+struct CapitalStructurePoint {
+    Rational     debt_ratio;
+    Rational     levered_beta;
+    Rational     cost_of_equity;
+    Rational     cost_of_debt;
+    CreditRating rating;
+    double       interest_coverage;
+    Rational     wacc;
+};
+
+struct OptimalCapitalStructureResult {
+    std::vector<CapitalStructurePoint> schedule;
+    CapitalStructurePoint              optimal;
+};
+
+expected<OptimalCapitalStructureResult, ValuationError>
+optimal_capital_structure(const OptimalCapitalStructureInputs& inputs);
+\end{lstlisting}
+
+\begin{atencao}
+O modelo de Damodaran via ICR captura apenas o \emph{custo de default
+via spread}.  Custos indiretos de dificuldade financeira (perda de
+clientes, contratação subótima, distraction gerencial) não são modelados.
+Em firmas com EBIT alto relativo ao valor, o algoritmo pode indicar
+razões de endividamento elevadas que na prática seriam inviáveis.
+\end{atencao}
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\chapter{Modelos Especializados}
+
+\section{Valuation por Cenários: Startups e Firmas em Transição}
+
+\subsection{Motivação}
+
+Empresas jovens ou em transição tecnológica têm distribuição de resultados
+fortemente assimétrica.  Um único DCF ``base'' ignora essa dispersão.
+Damodaran (\textit{Dark Side}, cap.~10--12) recomenda:
+
+\begin{enumerate}
+  \item Definir $n$ cenários (geralmente 3--5) com probabilidades;
+  \item Calcular o TV de cada cenário: $\TV_i = \FCFF_i \cdot \text{mul}_i$;
+  \item Descontar cada TV ao presente: $PV_i = \TV_i / (1+\WACC_i)^T$;
+  \item Aplicar probabilidade de sobrevivência:
+\end{enumerate}
+
+\begin{equation}
+  \EV_{\text{ajustado}} = \left[\sum_i P_i \cdot PV_i \right]
+                          \cdot P(\text{sobrevive})
+                        + V_{\text{falência}} \cdot [1 - P(\text{sobrevive})]
+\end{equation}
+
+\subsection{API}
+
+\begin{lstlisting}[style=cpp]
+struct ValuationScenario {
+    std::string name;
+    Rational    probability;
+    Currency    terminal_fcff;
+    Rational    terminal_growth;
+    Rational    wacc;
+    int         years_to_terminal;
+};
+
+struct StartupValuationInputs {
+    std::vector<ValuationScenario> scenarios;
+    Rational  survival_probability;
+    Currency  failure_value;
+    Currency  net_debt;
+    int64_t   shares_outstanding;
+};
+
+expected<StartupValuationResult, ValuationError>
+startup_valuation(const StartupValuationInputs& inputs);
+\end{lstlisting}
+
+A soma das probabilidades deve ser $1{,}0$ (tolerância $10^{-6}$);
+caso contrário, \texttt{InvalidInput} é retornado.
+
+\section{Equity como Opção: Modelo de Merton}
+
+\subsection{Fundamento}
+
+Em firmas com dívida elevada, o equity comporta-se como uma \emph{opção de
+compra} sobre o valor dos ativos, com strike igual ao valor de face da dívida
+(Merton, 1974):
+
+\begin{align}
+  d_1 &= \frac{\ln(V/D) + (r + \sigma_V^2/2)T}{\sigma_V \sqrt{T}} \\[4pt]
+  d_2 &= d_1 - \sigma_V \sqrt{T} \\[4pt]
+  E   &= V \cdot \mathcal{N}(d_1) - D \cdot e^{-rT} \cdot \mathcal{N}(d_2)
+  \label{eq:merton}
+\end{align}
+
+A probabilidade \emph{risk-neutral} de default é $\mathcal{N}(-d_2)$.
+A distância ao default $d_2$ é o indicador de saúde financeira.
+
+\begin{atencao}
+$V$ e $\sigma_V$ são os ativos da firma, \emph{não observáveis} diretamente.
+A estimação iterativa (resolver $\{E, \sigma_E\}$ com o sistema não-linear
+$E = \text{BS}(V, \sigma_V)$ e $\sigma_E E = \mathcal{N}(d_1) \sigma_V V$)
+não é implementada; o usuário fornece $V$ e $\sigma_V$.
+\end{atencao}
+
+\subsection{API}
+
+\begin{lstlisting}[style=cpp]
+struct EquityAsOptionInputs {
+    double firm_value;        // V
+    double debt_face_value;   // D
+    double asset_volatility;  // sigma_V
+    double risk_free_rate;    // r (continuo)
+    double debt_maturity;     // T em anos
+};
+
+struct EquityAsOptionResult {
+    double equity_value;
+    double debt_market_value;
+    double probability_default;  // N(-d2)
+    double distance_to_default;  // d2
+    double d1;
+};
+
+EquityAsOptionResult                         // sem expected: sempre definido
+equity_as_option(const EquityAsOptionInputs& inputs) noexcept;
+\end{lstlisting}
+
+A CDF normal é implementada via:
+$\mathcal{N}(x) = \tfrac{1}{2}\,\mathrm{erfc}\!\left(-x/\sqrt{2}\right)$
+(função \texttt{std::erfc} de \texttt{<cmath>}).
+
+\section{FCFE para Instituições Financeiras}
+
+\subsection{Por que bancos são diferentes}
+
+\begin{itemize}
+  \item A dívida (depósitos, CDBs) é \emph{matéria-prima}, não fonte de
+        financiamento capex — não faz sentido calcular FCFF ou WACC.
+  \item O reinvestimento é regulado: Basileia III exige capital mínimo
+        sobre os ativos ponderados pelo risco (RWA).
+  \item O custo de capital relevante é apenas $\Ke$.
+\end{itemize}
+
+\subsection{Modelo}
+
+\begin{equation}
+  \FCFE_{\text{banco}} = NI \times (1 - \RR_{\text{equity}})
+\end{equation}
+
+\[
+  \RR_{\text{equity}} = \frac{\Delta \text{RWA} \times \text{target Tier1}}{NI}
+\]
+
+\subsection{API}
+
+\begin{lstlisting}[style=cpp]
+struct BankFCFEInputs {
+    Currency net_income;
+    Rational equity_reinvestment_rate;
+};
+
+expected<Currency, ValuationError>
+compute_bank_fcfe(const BankFCFEInputs& inputs);
+
+struct RegulatoryCapitalInputs {
+    Currency net_income;
+    Currency current_rwa;
+    Currency projected_rwa;
+    Rational target_tier1_ratio;
+};
+
+expected<Rational, ValuationError>
+bank_equity_reinvestment_rate(const RegulatoryCapitalInputs& inputs);
+\end{lstlisting}
+
+Para o DCF de um banco, usa-se \texttt{compute\_fcfe\_dcf} com os FCFEs
+gerados por \texttt{compute\_bank\_fcfe}.
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\chapter{Exemplo Completo: Petrobras e Itaú Unibanco}
+
+\section{Dados}
+
+\begin{table}[h]
+\centering
+\caption{Petrobras S.A.\ --- dados aproximados 2023}
+\begin{tabularx}{\textwidth}{Xrr}
+\toprule
+\textbf{Item} & \textbf{R\$ bilhões} & \textbf{Código} \\
+\midrule
+Receita líquida & 500 & \texttt{B(500)} \\
+EBIT histórico 2019--2023 & 80, 95, 145, 165, 145 & \texttt{B(80)\ldots} \\
+EBIT normalizado (média) & 126 & — \\
+D\&A & 45 & \texttt{B(45)} \\
+CapEx & 70 & \texttt{B(70)} \\
+$\Delta$CGN & 5 & \texttt{B(5)} \\
+Lucro Líquido & 124 & \texttt{B(124)} \\
+Despesa Financeira & 22 & \texttt{B(22)} \\
+Dívida Líquida & 250 & \texttt{B(250)} \\
+Capital Investido & 500 & \texttt{B(500)} \\
+Ações & 13 bilhões & \texttt{13e9} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Parâmetros de Custo de Capital}
+
+\begin{itemize}
+  \item $\Rf = 5\%$ (T-Bond 10Y \emph{stripped});
+  \item $\ERP = 5\%$ (mercado americano, Damodaran 2024);
+  \item $\CRP = 3\%$ (Brasil, EMBI+ ajustado por volatilidade);
+  \item $\lambda = 0{,}5$ (Petrobras: $\approx 50\%$ receita no exterior);
+  \item $\beta_U = 0{,}8$ (setor O\&G, bottom-up a partir de Shell, Exxon,
+        BP, Chevron, Equinor com $t_{\text{setor}} = 25\%$);
+  \item $D/E = 250/500 = 0{,}5$; $t = 34\%$.
+\end{itemize}
+
+\textbf{Resultados de custo de capital:}
+$\beta_L \approx 1{,}014$; $\Ke \approx 11{,}57\%$;
+ICR$= 145/22 = 6{,}6\times \to$ AA rating $\to \Kd = 5{,}78\%$;
+$\WACC \approx 8{,}99\%$ (racional exato: $44933/500000$).
+
+\section{Crescimento e FCFF}
+
+\begin{align*}
+  \FCFF_0 &= 126 \times 0{,}66 + 45 - 70 - 5 = \text{R\$}53{,}2B \\
+  \ROIC   &= 83{,}2/500 = 16{,}63\% \\
+  \RR     &= 30/83{,}2 = 36{,}08\% \\
+  g_{\text{fund}} &= 16{,}63\% \times 36{,}08\% = 6\%
+\end{align*}
+
+Para o DCF usa-se $g_{\text{explícito}} = 3\%$ por 5 anos e
+$g_{\text{terminal}} = 1{,}5\%$.
+
+\section{Resumo dos Resultados}
+
+\begin{table}[h]
+\centering
+\caption{Comparativo de modelos --- Petrobras (PETR4)}
+\label{tab:resultados}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Modelo} & \textbf{Preço justo} & \textbf{Módulo} \\
+\midrule
+DCF (FCFF, Gordon TV)  & R\$39,88 & \texttt{dcf} \\
+FCFE (equity direto)   & R\$85,72 & \texttt{fcfe} \\
+APV Modigliani-Miller  & R\$31,13 & \texttt{apv} \\
+APV Miles-Ezzell       & R\$28,55 & \texttt{apv} \\
+H-Model (dividendos)   & R\$54,11 & \texttt{ddm} \\
+Cenários (transição E) & R\$24,42 & \texttt{startup} \\
+EVA / Excess Returns   & R\$58,51 & \texttt{excess\_returns} \\
+\midrule
+Cotação mercado (2024) & R\$38--42 & — \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{atencao}
+A discrepância entre modelos é \emph{esperada e informativa}:
+\begin{itemize}
+  \item O \textbf{FCFE} usa NI de 2023 (R\$124B) sem normalização — inflado pelo ciclo
+        de petróleo elevado;
+  \item O \textbf{APV} não inclui benefício da dívida nas taxas de crescimento,
+        de modo que o TV é menor;
+  \item O modelo de \textbf{cenários} penaliza fortemente a transição energética
+        acelerada (20\% de probabilidade de FCFF cair para R\$40B);
+  \item O \textbf{DCF/FCFF normalizado} (R\$39,88) é o mais consistente com
+        a cotação de mercado por usar EBIT médio do ciclo.
+\end{itemize}
+\end{atencao}
+
+\section{Banco Itaú Unibanco (ITUB4)}
+
+\begin{table}[h]
+\centering
+\caption{Itaú Unibanco --- dados aproximados 2023}
+\begin{tabular}{lr}
+\toprule
+\textbf{Item} & \textbf{Valor} \\
+\midrule
+Lucro Líquido  & R\$35B \\
+RWA atual      & R\$1{.}800B \\
+RWA projetado  & R\$1{.}944B (+8\%) \\
+Target Tier1   & 13{,}5\% \\
+\midrule
+$\Delta$Capital regulatório & R\$144B $\times$ 13,5\% = R\$19,4B \\
+$\RR_{\text{equity}}$       & R\$19,4B / R\$35B = 55,5\% \\
+$\FCFE_{\text{banco}}$      & R\$35B $\times$ 44,5\% = R\$15,6B \\
+Preço justo (DCF)           & R\$22,61/ação \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A alta $\RR_{\text{equity}}$ reflete o crescimento rápido do crédito brasileiro:
+o banco precisa reter $\approx 56\%$ dos lucros para suportar a expansão
+regulatória dos ativos.
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\chapter{Fluxo de Dados entre Módulos}
+
+\section{Visão geral}
+
+A figura abaixo ilustra o fluxo típico de uma análise completa:
+
+\begin{center}
+\small
+\begin{tabular}{c}
+\texttt{normalize} \\
+$\downarrow$ \\
+\texttt{fcff} $\;\longrightarrow\;$ \texttt{growth}
+             $\;\longrightarrow\;$ \texttt{project\_fcff} \\
+$\downarrow$ \\
+\texttt{beta} + \texttt{capm} + \texttt{kd}
+$\;\longrightarrow\;$ \texttt{wacc} \\
+$\downarrow$ \\
+\texttt{dcf} $\;\longrightarrow\;$ \texttt{terminal} \\
+$\quad\longrightarrow\;$ \texttt{apv} (MM + ME) \\
+$\quad\longrightarrow\;$ \texttt{excess\_returns} \\
+$\quad\longrightarrow\;$ \texttt{relative} \\
+$\quad\longrightarrow\;$ \texttt{capital\_structure} \\
+\texttt{fcfe} $\;\longrightarrow\;$ \texttt{fcfe\_dcf} \\
+\texttt{ddm}  $\;\longrightarrow\;$ \texttt{h\_model} \\
+\texttt{startup} (independente) \\
+\texttt{distress} (independente) \\
+\texttt{bank} $\;\longrightarrow\;$ \texttt{fcfe\_dcf}
+\end{tabular}
+\end{center}
+
+\section{Consistência entre modelos}
+
+Para que FCFF-DCF e FCFE-DCF produzam o mesmo preço por ação:
+\begin{enumerate}
+  \item $\FCFE = \FCFF - \text{Juros}(1-t) + \Delta D$;
+  \item A taxa de crescimento usada em ambos deve ser a mesma;
+  \item O $\Delta D$ deve ser consistente com a razão $D/V$ ao longo do tempo.
+\end{enumerate}
+
+Para que APV e WACC-DCF produzam o mesmo $\EV$:
+\begin{itemize}
+  \item WACC presume alavancagem constante (ajusta WACC a cada período);
+  \item APV presume cronograma de dívida predeterminado.
+  \item Em geral, APV é mais flexível; WACC é mais simples para estrutura estável.
+\end{itemize}
+
+%% ════════════════════════════════════════════════════════════════════════════════
+\appendix
+
+\chapter{Tabela de Ratings e Spreads (Damodaran 2023)}
+
+\begin{table}[h]
+\centering
+\caption{Large Cap}
+\begin{tabular}{crr}
+\toprule
+\textbf{Rating} & \textbf{ICR mínimo} & \textbf{Spread (bps)} \\
+\midrule
+Aaa/AAA & 8,50 & 63 \\
+Aa2/AA  & 6,50 & 78 \\
+A1/A+   & 5,50 & 98 \\
+A2/A    & 4,25 & 108 \\
+A3/A--  & 3,00 & 122 \\
+Baa2/BBB & 2,50 & 156 \\
+Ba1/BB+ & 2,25 & 200 \\
+Ba2/BB  & 2,00 & 240 \\
+B1/B+   & 1,75 & 350 \\
+B2/B    & 1,50 & 375 \\
+B3/B--  & 1,25 & 500 \\
+Caa/CCC & 0,80 & 600 \\
+Ca2/CC  & 0,65 & 700 \\
+C2/C    & 0,20 & 800 \\
+D2/D    & $<0{,}20$ & 1200 \\
+\bottomrule
+\end{tabular}
+\quad
+\begin{tabular}{crr}
+\toprule
+\textbf{Rating} & \textbf{ICR mínimo} & \textbf{Spread (bps)} \\
+\midrule
+Aaa/AAA & 12,50 & 63 \\
+Aa2/AA  &  9,50 & 78 \\
+A1/A+   &  7,50 & 98 \\
+A2/A    &  6,00 & 108 \\
+A3/A--  &  4,50 & 122 \\
+Baa2/BBB &  4,00 & 156 \\
+Ba1/BB+ &  3,50 & 200 \\
+Ba2/BB  &  3,00 & 240 \\
+B1/B+   &  2,50 & 350 \\
+B2/B    &  2,00 & 375 \\
+B3/B--  &  1,50 & 500 \\
+Caa/CCC &  1,25 & 600 \\
+Ca2/CC  &  0,80 & 700 \\
+C2/C    &  0,50 & 800 \\
+D2/D    & $<0{,}50$ & 1200 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{center}\small Esquerda: \emph{large cap}. \quad Direita: \emph{small cap}.\end{center}
+
+\chapter{Referências e Leitura Adicional}
+
+\begin{thebibliography}{99}
+
+\bibitem{dam12}
+Damodaran, A. (2012).
+\textit{Investment Valuation: Tools and Techniques for Determining the Value of Any Asset}.
+3ª ed. Wiley Finance.
+
+\bibitem{dam09}
+Damodaran, A. (2009).
+\textit{The Dark Side of Valuation}.
+2ª ed. FT Press.
+[3ª ed., 2018]
+
+\bibitem{me80}
+Miles, J.\ A.; Ezzell, J.\ R. (1980).
+The Weighted Average Cost of Capital, Perfect Capital Markets, and Project Life:
+A Clarification.
+\textit{Journal of Financial and Quantitative Analysis}, 15(3), 719--730.
+
+\bibitem{mm63}
+Modigliani, F.; Miller, M.\ H. (1963).
+Corporate Income Taxes and the Cost of Capital: A Correction.
+\textit{American Economic Review}, 53(3), 433--443.
+
+\bibitem{merton74}
+Merton, R.\ C. (1974).
+On the Pricing of Corporate Debt: The Risk Structure of Interest Rates.
+\textit{Journal of Finance}, 29(2), 449--470.
+
+\bibitem{fh84}
+Fuller, R.\ J.; Hsia, C.\ C. (1984).
+A Simplified Common Stock Valuation Model.
+\textit{Financial Analysts Journal}, 40(5), 49--56.
+
+\bibitem{hamada72}
+Hamada, R.\ S. (1972).
+The Effect of the Firm's Capital Structure on the Systematic Risk of Common Stocks.
+\textit{Journal of Finance}, 27(2), 435--452.
+
+\bibitem{dam_site}
+Damodaran, A.
+\textit{Damodaran Online} --- dados e tabelas atualizados anualmente.
+\url{https://pages.stern.nyu.edu/~adamodar/}
+
+\bibitem{ratmoney}
+\textit{ratmoney} --- Biblioteca C++23 para aritmética monetária racional exata.
+\url{https://github.com/flavop/ratmoney}
+
+\end{thebibliography}
+
+\end{document}
