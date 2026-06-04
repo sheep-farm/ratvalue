@@ -73,16 +73,22 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSANITIZE=ON
 
 **Option 1 — pip install (recommended):**
 
+Inside a virtual environment:
 ```bash
+python3 -m venv venv && source venv/bin/activate
 pip install nanobind scikit-build-core
 pip install --no-build-isolation .
 ```
 
-The `--no-build-isolation` flag is required so pip uses the already-installed
-`nanobind` and `scikit-build-core` rather than trying to fetch them into an
-isolated environment (which fails on systems with PEP 668 restrictions, e.g.
-Arch Linux). On standard environments without restrictions the flag is
-optional.
+Or system-wide on Arch Linux / PEP 668 systems:
+```bash
+pip install --break-system-packages nanobind scikit-build-core
+pip install --break-system-packages --no-build-isolation .
+```
+
+`--no-build-isolation` is required so pip uses the already-installed
+`nanobind` and `scikit-build-core` rather than fetching them into an
+isolated subprocess (which fails on PEP 668 systems).
 
 **Option 2 — manual CMake build:**
 
