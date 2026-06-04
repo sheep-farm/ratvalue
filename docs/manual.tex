@@ -130,6 +130,125 @@ Prerequisites: familiarity with C++17+, basic linear algebra, and corporate
 finance at the undergraduate level.
 
 %% ════════════════════════════════════════════════════════════════════════════════
+\chapter*{Quick Start}
+\addcontentsline{toc}{chapter}{Quick Start}
+
+This chapter gets you from zero to a working DCF in five minutes, in both
+C++ and Python. Read the remaining chapters for theory and full API details.
+
+\section*{Step 1 --- Prerequisites}
+
+\begin{itemize}
+  \item \textbf{ratmoney} installed in \texttt{/usr/local}
+        (\url{https://github.com/sheep-farm/ratmoney})
+  \item GCC $\geq$ 13 or Clang $\geq$ 17, CMake $\geq$ 3.20, GTest
+  \item \textit{Python bindings only:} Python $\geq$ 3.9, nanobind $\geq$ 2.0,
+        scikit-build-core $\geq$ 0.9
+\end{itemize}
+
+\section*{Step 2 --- Build}
+
+\begin{lstlisting}[style=cpp, language=bash, numbers=none,
+                   caption={C++ library, tests, and demo binary}]
+git clone https://github.com/sheep-farm/ratvalue
+cd ratvalue
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+ctest --test-dir build --output-on-failure   # 82 tests, all green
+./build/main_bin                             # Petrobras + Itau full example
+\end{lstlisting}
+
+\begin{lstlisting}[style=cpp, language=bash, numbers=none,
+                   caption={Python bindings}]
+pip install nanobind scikit-build-core
+pip install .
+\end{lstlisting}
+
+\section*{Step 3 --- Minimal DCF in C++}
+
+\begin{lstlisting}[style=cpp, caption={Minimal two-stage DCF --- C++}]
+#include "fcff.h"
+#include "capm.h"
+#include "wacc.h"
+#include "dcf.h"
+
+using namespace ratvalue;
+using ratmoney::Currency, ratmoney::Rational, ratmoney::CurrencyDescription;
+
+int main() {
+    CurrencyDescription BRL{"BRL", "R$", 2};
+    Rational ONE{1, 1};
+    auto B = [&](int64_t b) {          // b = billions
+        return Currency{b * 100'000'000'000LL, ONE, BRL};
+    };
+
+    // Cost of capital
+    Rational ke = *cost_of_equity({
+        .risk_free_rate      = {1, 20},   // 5%
+        .beta                = {13, 10},  // 1.30
+        .equity_risk_premium = {1, 20},   // 5%
+    });
+    Rational wacc = *compute_wacc({
+        .equity_weight  = {2, 3},
+        .debt_weight    = {1, 3},
+        .cost_of_equity = ke,
+        .cost_of_debt   = {6, 100},  // 6%
+        .tax_rate       = {34, 100},
+    });
+
+    // FCFF projection: 3% for 5 years
+    auto fcffs = *project_fcff({
+        .base_fcff = B(53),
+        .stages    = {{{3, 100}, 5}},
+    });
+
+    // DCF
+    auto r = *compute_dcf({
+        .projected_fcff     = fcffs,
+        .wacc               = wacc,
+        .terminal_growth    = {3, 200},   // 1.5%
+        .net_debt           = B(250),
+        .shares_outstanding = 13'000'000'000LL,
+    });
+
+    // Print price per share
+    double price = detail::to_double(r.equity_value_per_share);
+    // -> ~39.89
+}
+\end{lstlisting}
+
+\section*{Step 4 --- Minimal DCF in Python}
+
+\begin{lstlisting}[style=cpp, language=Python, numbers=none,
+                   caption={Equivalent DCF in Python}]
+import ratvalue as rv
+
+fcffs = rv.project_fcff(
+    rv.compute_fcff(ebit_b=126, tax_rate=0.34, da_b=45, capex_b=70),
+    stages=[(0.03, 5)]
+)
+ke   = rv.cost_of_equity(rf=0.05, beta=1.30, erp=0.05)
+wacc = rv.compute_wacc(2/3, ke, 1/3, kd=0.06, tax_rate=0.34)
+
+result = rv.compute_dcf(fcffs, wacc=wacc, terminal_growth=0.015,
+                         net_debt_billions=250, shares=13_000_000_000)
+print(result.price_per_share)   # ~39.89
+\end{lstlisting}
+
+\section*{Step 5 --- Where to go next}
+
+\begin{description}
+  \item[Chapter~\ref{sec:capm}] Extended CAPM with country risk premium ---
+       essential for emerging-market valuations.
+  \item[Chapter 6] Anchoring growth in ROIC and reinvestment rate ---
+       avoids the most common DCF error.
+  \item[Chapter 8] Consistent terminal value --- links $g$, ROIC, and FCFF
+       at the stable stage.
+  \item[Chapter 15] Python bindings --- full API reference and complete
+       Petrobras example in Python.
+\end{description}
+
+%% ════════════════════════════════════════════════════════════════════════════════
 \chapter{Introduction}
 
 \section{Motivation}
