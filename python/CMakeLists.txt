@@ -1,7 +1,17 @@
 cmake_minimum_required(VERSION 3.20)
+project(ratvalue_python CXX)
 
 find_package(Python 3.9 COMPONENTS Interpreter Development.Module REQUIRED)
-find_package(nanobind CONFIG REQUIRED)
+
+# Locate nanobind cmake dir from the active Python environment
+execute_process(
+    COMMAND "${Python_EXECUTABLE}" -c
+        "import nanobind; print(nanobind.cmake_dir())"
+    OUTPUT_VARIABLE NB_CMAKE_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY
+)
+find_package(nanobind CONFIG REQUIRED HINTS "${NB_CMAKE_DIR}")
 
 nanobind_add_module(ratvalue NB_STATIC
     module.cpp
@@ -29,4 +39,4 @@ target_link_libraries(ratvalue PRIVATE RatValue::Static)
 
 target_compile_options(ratvalue PRIVATE -Wall -Wextra)
 
-install(TARGETS ratvalue LIBRARY DESTINATION .)
+install(TARGETS ratvalue LIBRARY DESTINATION . COMPONENT python_modules)
