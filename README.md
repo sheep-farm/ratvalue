@@ -75,17 +75,22 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSANITIZE=ON
 
 ```bash
 pip install nanobind scikit-build-core
-pip install .
+pip install --no-build-isolation .
 ```
+
+The `--no-build-isolation` flag is required so pip uses the already-installed
+`nanobind` and `scikit-build-core` rather than trying to fetch them into an
+isolated environment (which fails on systems with PEP 668 restrictions, e.g.
+Arch Linux). On standard environments without restrictions the flag is
+optional.
 
 **Option 2 — manual CMake build:**
 
 ```bash
-NB_CMAKE=$(python3 -c "import nanobind; print(nanobind.cmake_dir())")
 cmake -S . -B build_py \
   -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_PYTHON=ON \
-  -DCMAKE_PREFIX_PATH="${NB_CMAKE};/usr/local"
+  -DCMAKE_PREFIX_PATH="/usr/local"
 cmake --build build_py -j$(nproc)
 # .so is in build_py/python/
 ```
