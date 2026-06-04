@@ -171,6 +171,7 @@ pip install --no-build-isolation .
 #include "capm.h"
 #include "wacc.h"
 #include "dcf.h"
+#include "detail.h"
 
 using namespace ratvalue;
 using ratmoney::Currency, ratmoney::Rational, ratmoney::CurrencyDescription;
@@ -196,9 +197,16 @@ int main() {
         .tax_rate       = {34, 100},
     });
 
-    // FCFF projection: 3% for 5 years
+    // FCFF base and projection: 3% for 5 years
+    Currency fcff0 = *compute_fcff({
+        .ebit                      = B(126),
+        .tax_rate                  = {34, 100},
+        .depreciation_amortization = B(45),
+        .capex                     = B(70),
+        .delta_nwc                 = B(5),
+    });
     auto fcffs = *project_fcff({
-        .base_fcff = B(53),
+        .base_fcff = fcff0,
         .stages    = {{{3, 100}, 5}},
     });
 
@@ -211,9 +219,8 @@ int main() {
         .shares_outstanding = 13'000'000'000LL,
     });
 
-    // Print price per share
     double price = detail::to_double(r.equity_value_per_share);
-    // -> ~39.89
+    // -> ~39.88
 }
 \end{lstlisting}
 
