@@ -1534,6 +1534,293 @@ For APV and WACC-DCF to yield the same $\EV$:
 \end{itemize}
 
 %% ════════════════════════════════════════════════════════════════════════════════
+\chapter{Python Bindings}
+
+\section{Overview}
+
+The \texttt{python/} directory provides nanobind bindings that expose the
+complete ratvalue API to Python without rewriting any logic. All 18 modules
+are covered. The C++ library performs every calculation; Python is only the
+calling layer.
+
+\begin{atencao}
+The Python boundary converts \texttt{ratmoney::Currency} and
+\texttt{ratmoney::Rational} to and from \texttt{double}. This introduces
+floating-point rounding at the interface, but all internal arithmetic
+remains exact. For production-grade auditing use the C++ API directly.
+\end{atencao}
+
+\section{Installation}
+
+\textbf{Prerequisites:}
+\begin{itemize}
+  \item Python $\geq$ 3.9
+  \item nanobind $\geq$ 2.0 and scikit-build-core $\geq$ 0.9
+  \item The C++ library and ratmoney already installed in \texttt{/usr/local}
+\end{itemize}
+
+\textbf{Option 1 --- pip (recommended):}
+\begin{lstlisting}[style=cpp, language=bash, numbers=none]
+pip install nanobind scikit-build-core
+pip install .
+\end{lstlisting}
+
+\textbf{Option 2 --- manual CMake build:}
+\begin{lstlisting}[style=cpp, language=bash, numbers=none]
+NB=$(python3 -c "import nanobind; print(nanobind.cmake_dir())")
+cmake -S . -B build_py \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_PYTHON=ON \
+  -DCMAKE_PREFIX_PATH="${NB};/usr/local"
+cmake --build build_py -j$(nproc)
+# shared library in build_py/python/ratvalue.cpython-*.so
+\end{lstlisting}
+
+\section{Unit Conventions}
+
+\begin{table}[h]
+\centering
+\caption{Python boundary unit conventions}
+\begin{tabular}{ll}
+\toprule
+\textbf{Value type} & \textbf{Unit at Python boundary} \\
+\midrule
+Aggregate monetary (EV, equity, IC, debt, \ldots) & BRL billions (\texttt{float}) \\
+Per-share values (dividends, intrinsic price) & BRL reais (\texttt{float}) \\
+Rates (Ke, Kd, WACC, growth, tax, \ldots) & Decimal (\texttt{0.05} = 5\%) \\
+Beta, ratios, multiples & Plain \texttt{float} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Internally, \texttt{bind\_helpers.h} converts via:
+
+\begin{lstlisting}[style=cpp, caption={Python boundary converters (bind\_helpers.h)}]
+// BRL billions -> Currency (1e11 cents per billion)
+inline Currency b2c(double billions) {
+    int64_t units = static_cast<int64_t>(std::round(billions * 1e11));
+    return {units, UNIT_RATE(), BRL_DESC()};
+}
+
+// float rate (e.g. 0.05) -> Rational with denominator 100,000
+inline Rational d2r(double v, int64_t den = 100'000) {
+    return {static_cast<int64_t>(std::round(v * den)), den};
+}
+\end{lstlisting}
+
+\section{API Reference}
+
+\subsection{Cost of Capital}
+
+\begin{lstlisting}[style=cpp, language=Python]
+ke = cost_of_equity(rf, beta, erp, crp=0.0, lam=1.0) -> float
+
+result = synthetic_cost_of_debt(ebit_billions, interest_billions,
+                                 rf, large_firm=True) -> SyntheticKdResult
+# .cost_of_debt  .default_spread  .rating (str)  .interest_coverage
+
+wacc = compute_wacc(equity_weight, ke, debt_weight, kd, tax_rate) -> float
+
+bl = lever_beta(unlevered_beta, debt_to_equity, tax_rate) -> float
+bu = unlever_beta(levered_beta, debt_to_equity, tax_rate) -> float
+b  = bottom_up_beta(comparable_levered_betas, comparable_debt_to_equity,
+                    comparable_tax_rate,
+                    target_debt_to_equity, target_tax_rate) -> float
+\end{lstlisting}
+
+\subsection{Data and Cash Flows}
+
+\begin{lstlisting}[style=cpp, language=Python]
+ebit = normalize_ebit_avg(historical_ebit_billions)         -> float
+ebit = normalize_ebit_margin(current_revenue_billions,
+                              normalized_margin)             -> float
+
+fcff  = compute_fcff(ebit_b, tax_rate, da_b, capex_b,
+                     delta_nwc_b=0.0)                       -> float
+fcffs = project_fcff(base_fcff_billions,
+                     stages: list[tuple[float,int]])        -> list[float]
+
+fcfe  = compute_fcfe(net_income_b, debt_ratio, capex_b,
+                     da_b, delta_nwc_b=0.0,
+                     net_new_debt_b=0.0)                    -> float
+result = compute_fcfe_dcf(projected_fcfe_billions,
+                           cost_of_equity, terminal_growth,
+                           shares)                          -> FCFEDCFResult
+\end{lstlisting}
+
+\subsection{Growth}
+
+\begin{lstlisting}[style=cpp, language=Python]
+roic = compute_roic(nopat_billions, invested_capital_billions) -> float
+roe  = compute_roe(net_income_billions, book_equity_billions)  -> float
+rr   = compute_reinvestment_rate(capex_b, da_b,
+                                  delta_nwc_b, nopat_b)        -> float
+g    = fundamental_growth_firm(roic, reinvestment_rate)        -> float
+g    = fundamental_growth_equity(roe, retention_ratio)         -> float
+\end{lstlisting}
+
+\subsection{Valuation Models}
+
+\begin{lstlisting}[style=cpp, language=Python]
+result = compute_dcf(projected_fcff_billions, wacc,
+                     terminal_growth, net_debt_billions,
+                     shares)                                -> DCFResult
+# .enterprise_value  .equity_value  .price_per_share
+# .pv_fcff  .pv_terminal_value
+
+result = compute_ddm(base_dividend, stages, cost_of_equity,
+                     stable_growth)                         -> DDMResult
+result = compute_h_model(base_dividend, high_growth,
+                          stable_growth, half_life,
+                          cost_of_equity)                   -> HModelResult
+
+tc = check_terminal_consistency(wacc, terminal_growth,
+                                 terminal_roic)             -> TerminalConsistency
+tv = consistent_terminal_value(stable_nopat_billions, wacc,
+                                terminal_growth,
+                                terminal_roic)              -> float
+tv = terminal_value_by_multiple(terminal_ebitda_billions,
+                                 ev_ebitda_multiple)        -> float
+
+result = compute_apv(projected_fcff_billions, terminal_growth,
+                     ku, debt_billions, tax_rate,
+                     net_debt_billions, shares)             -> APVResult
+result = compute_apv_miles_ezzell(projected_fcff_billions,
+                                   terminal_growth, ku, kd,
+                                   debt_billions, tax_rate,
+                                   net_debt_billions,
+                                   shares)                  -> APVResult
+# .unlevered_firm_value  .pv_tax_shield  .apv
+# .equity_value  .price_per_share
+
+result = excess_returns_value(invested_capital_billions,
+                               roic, wacc,
+                               terminal_growth)             -> ExcessReturnsResult
+result = excess_returns_multistage(invested_capital_billions,
+                                    roic, stages, wacc,
+                                    terminal_roic,
+                                    terminal_growth)        -> ExcessReturnsResult
+
+result = compute_justified_multiples(ke, wacc, roe,
+                                      payout_ratio, roic,
+                                      tax_rate)             -> JustifiedMultiples
+# .pe_ratio  .pb_ratio  .ev_ebitda  .g_equity  .implied_reinvestment
+
+result = optimal_capital_structure(
+             unlevered_beta, rf, erp, tax_rate,
+             ebit_billions, firm_value_billions,
+             crp=0.0, lam=1.0, steps=10,
+             large_firm=True)               -> OptimalCapitalStructureResult
+# .schedule: list[CapitalStructurePoint]
+# .optimal:  CapitalStructurePoint
+#   each point: .debt_ratio .cost_of_equity .cost_of_debt
+#               .rating (str) .interest_coverage .wacc
+
+result = startup_valuation(scenarios, survival_probability,
+                            failure_value_billions,
+                            net_debt_billions, shares)      -> StartupValuationResult
+# scenarios: list[dict] with keys:
+#   name, probability, terminal_fcff_b, terminal_growth,
+#   wacc, years_to_terminal
+
+result = equity_as_option(firm_value, debt_face_value,
+                           asset_volatility, risk_free_rate,
+                           debt_maturity_years)             -> EquityAsOptionResult
+# .equity_value  .debt_market_value
+# .probability_default  .distance_to_default  .d1
+
+rr     = bank_equity_reinvestment_rate(net_income_b,
+             current_rwa_b, projected_rwa_b,
+             target_tier1_ratio)                            -> float
+fcfe_b = compute_bank_fcfe(net_income_billions,
+                            equity_reinvestment_rate)       -> float
+\end{lstlisting}
+
+\section{Complete Example: Petrobras}
+
+\begin{lstlisting}[style=cpp, language=Python,
+                   caption={Full DCF in Python --- results match C++ binary}]
+import ratvalue as rv
+
+# Cost of capital
+ke   = rv.cost_of_equity(rf=0.05, beta=1.014, erp=0.05, crp=0.03, lam=0.5)
+kd_r = rv.synthetic_cost_of_debt(ebit_billions=145, interest_billions=22, rf=0.05)
+wacc = rv.compute_wacc(equity_weight=2/3, ke=ke,
+                       debt_weight=1/3,   kd=kd_r.cost_of_debt, tax_rate=0.34)
+# ke=11.57%  kd=5.78% (AA, ICR=6.6x)  wacc=8.99%
+
+# FCFF
+fcff0 = rv.compute_fcff(ebit_b=126, tax_rate=0.34, da_b=45,
+                         capex_b=70, delta_nwc_b=5)    # 53.16B
+fcffs = rv.project_fcff(fcff0, [(0.03, 5)])
+
+# Fundamental growth
+roic = rv.compute_roic(nopat_billions=83.2, invested_capital_billions=500)
+rr   = rv.compute_reinvestment_rate(capex_b=70, da_b=45,
+                                     delta_nwc_b=5, nopat_b=83.2)
+g    = rv.fundamental_growth_firm(roic, rr)            # 6.0%
+
+# Terminal value consistency check
+tc = rv.check_terminal_consistency(wacc=wacc, terminal_growth=0.015,
+                                    terminal_roic=0.12)
+assert tc.value_creating and tc.reinvestment_feasible
+
+# DCF
+dcf = rv.compute_dcf(fcffs, wacc=wacc, terminal_growth=0.015,
+                      net_debt_billions=250, shares=13_000_000_000)
+# dcf.price_per_share -> 39.89  (market: R$38-42)
+
+# APV comparison
+apv_mm = rv.compute_apv(fcffs, 0.015, ku=ke, debt_billions=250,
+                         tax_rate=0.34, net_debt_billions=250,
+                         shares=13_000_000_000)
+apv_me = rv.compute_apv_miles_ezzell(fcffs, 0.015, ku=ke,
+                                      kd=kd_r.cost_of_debt,
+                                      debt_billions=250, tax_rate=0.34,
+                                      net_debt_billions=250,
+                                      shares=13_000_000_000)
+# apv_mm.pv_tax_shield -> 85.0B (MM)
+# apv_me.pv_tax_shield -> 51.4B (ME, more conservative)
+
+# H-Model
+hm = rv.compute_h_model(base_dividend=5.0, high_growth=0.03,
+                          stable_growth=0.015, half_life=5,
+                          cost_of_equity=ke)
+# hm.intrinsic_value -> 54.12
+
+# EVA
+er = rv.excess_returns_value(invested_capital_billions=500,
+                               roic=roic, wacc=wacc, terminal_growth=0.015)
+# er.firm_value -> 1010.6B   er.pv_excess_returns -> 510.6B
+
+# Justified multiples (normalized ROE=15%)
+jm = rv.compute_justified_multiples(ke=ke, wacc=wacc, roe=0.15,
+                                     payout_ratio=0.60, roic=roic,
+                                     tax_rate=0.34)
+# jm.pe_ratio=10.8x  jm.pb_ratio=1.6x  jm.ev_ebitda=14.1x
+
+# Scenario valuation (energy transition risk)
+scenarios = [
+    {"name":"Bull","probability":0.35,"terminal_fcff_b":90,
+     "terminal_growth":0.02,"wacc":0.085,"years_to_terminal":5},
+    {"name":"Base","probability":0.45,"terminal_fcff_b":60,
+     "terminal_growth":0.015,"wacc":0.090,"years_to_terminal":5},
+    {"name":"Bear","probability":0.20,"terminal_fcff_b":30,
+     "terminal_growth":0.010,"wacc":0.100,"years_to_terminal":5},
+]
+sc = rv.startup_valuation(scenarios, survival_probability=0.95,
+                           failure_value_billions=100,
+                           net_debt_billions=250, shares=13_000_000_000)
+# sc.price_per_share -> 24.42
+
+# Merton distress model (2015 crisis scenario)
+dist = rv.equity_as_option(firm_value=350, debt_face_value=420,
+                            asset_volatility=0.45, risk_free_rate=0.12,
+                            debt_maturity_years=3)
+# dist.equity_value=128.4B   dist.probability_default=56.4%
+\end{lstlisting}
+
+%% ════════════════════════════════════════════════════════════════════════════════
 \appendix
 
 \chapter{Rating and Spread Tables (Damodaran 2023)}
