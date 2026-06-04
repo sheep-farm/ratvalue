@@ -136,14 +136,14 @@ scenarios = [
 sc = rv.startup_valuation(scenarios, survival_probability=0.95,
                            failure_value_billions=100,
                            net_debt_billions=250, shares=13_000_000_000)
-print(sc.price_per_share)       # 24.42
+print(sc.price_per_share)       # 25.59
 
 # ── Bank FCFE (Itaú Unibanco) ─────────────────────────────────────────────────
 rr   = rv.bank_equity_reinvestment_rate(
            net_income_b=35, current_rwa_b=1800,
            projected_rwa_b=1944, target_tier1_ratio=0.135)
 fcfe = rv.compute_bank_fcfe(net_income_billions=35, equity_reinvestment_rate=rr)
-print(fcfe)                     # 15.56
+print(round(fcfe, 2))           # 15.56
 ```
 
 ## Example output (C++ binary excerpt)
