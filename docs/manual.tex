@@ -161,7 +161,7 @@ ctest --test-dir build --output-on-failure   # 82 tests, all green
 \begin{lstlisting}[style=cpp, language=bash, numbers=none,
                    caption={Python bindings}]
 pip install nanobind scikit-build-core
-pip install .
+pip install --no-build-isolation .
 \end{lstlisting}
 
 \section*{Step 3 --- Minimal DCF in C++}
@@ -1681,19 +1681,27 @@ remains exact. For production-grade auditing use the C++ API directly.
 \textbf{Option 1 --- pip (recommended):}
 \begin{lstlisting}[style=cpp, language=bash, numbers=none]
 pip install nanobind scikit-build-core
-pip install .
+pip install --no-build-isolation .
 \end{lstlisting}
+
+The \texttt{--no-build-isolation} flag is required so that pip uses the
+already-installed \texttt{nanobind} and \texttt{scikit-build-core} instead
+of attempting to fetch them into an isolated subprocess environment.
+This is necessary on systems with PEP~668 restrictions (e.g.\ Arch Linux);
+on standard environments it is optional.
 
 \textbf{Option 2 --- manual CMake build:}
 \begin{lstlisting}[style=cpp, language=bash, numbers=none]
-NB=$(python3 -c "import nanobind; print(nanobind.cmake_dir())")
 cmake -S . -B build_py \
   -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_PYTHON=ON \
-  -DCMAKE_PREFIX_PATH="${NB};/usr/local"
+  -DCMAKE_PREFIX_PATH="/usr/local"
 cmake --build build_py -j$(nproc)
 # shared library in build_py/python/ratvalue.cpython-*.so
 \end{lstlisting}
+
+The nanobind cmake directory is located automatically via the active Python
+interpreter inside \texttt{python/CMakeLists.txt}; no manual path is needed.
 
 \section{Unit Conventions}
 
