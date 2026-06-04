@@ -1,4 +1,4 @@
-%% manual.tex — ratvalue: Manual do Usuário
+%% manual.tex --- ratvalue: Manual do Usuário
 %% Compile: pdflatex manual.tex  (requer pacotes padrão texlive-full)
 %% Codificação: UTF-8
 
@@ -72,19 +72,21 @@
   breakable}
 
 %% ── Comandos matemáticos ───────────────────────────────────────────────────────
-\newcommand{\FCFF}{\mathrm{FCFF}}
-\newcommand{\FCFE}{\mathrm{FCFE}}
-\newcommand{\WACC}{\mathrm{WACC}}
-\newcommand{\NOPAT}{\mathrm{NOPAT}}
-\newcommand{\ROIC}{\mathrm{ROIC}}
-\newcommand{\ROE}{\mathrm{ROE}}
-\newcommand{\ERP}{\mathrm{ERP}}
-\newcommand{\CRP}{\mathrm{CRP}}
-\newcommand{\EV}{\mathrm{EV}}
-\newcommand{\IC}{\mathrm{IC}}
-\newcommand{\TV}{\mathrm{TV}}
-\newcommand{\APV}{\mathrm{APV}}
-\newcommand{\EVA}{\mathrm{EVA}}
+%% \ensuremath garante que funcionam tanto em modo texto quanto matemático
+\newcommand{\EBIT}{\ensuremath{\mathrm{EBIT}}}
+\newcommand{\FCFF}{\ensuremath{\mathrm{FCFF}}}
+\newcommand{\FCFE}{\ensuremath{\mathrm{FCFE}}}
+\newcommand{\WACC}{\ensuremath{\mathrm{WACC}}}
+\newcommand{\NOPAT}{\ensuremath{\mathrm{NOPAT}}}
+\newcommand{\ROIC}{\ensuremath{\mathrm{ROIC}}}
+\newcommand{\ROE}{\ensuremath{\mathrm{ROE}}}
+\newcommand{\ERP}{\ensuremath{\mathrm{ERP}}}
+\newcommand{\CRP}{\ensuremath{\mathrm{CRP}}}
+\newcommand{\EV}{\ensuremath{\mathrm{EV}}}
+\newcommand{\IC}{\ensuremath{\mathrm{IC}}}
+\newcommand{\TV}{\ensuremath{\mathrm{TV}}}
+\newcommand{\APV}{\ensuremath{\mathrm{APV}}}
+\newcommand{\EVA}{\ensuremath{\mathrm{EVA}}}
 \newcommand{\Ke}{K_e}
 \newcommand{\Kd}{K_d}
 \newcommand{\Ku}{K_u}
@@ -300,7 +302,7 @@ Código cliente não deve incluí-lo diretamente.
 
 Firmas cíclicas (petróleo, mineração, siderurgia, agro) apresentam EBIT
 volátil que distorce qualquer DCF baseado no ano mais recente.  Damodaran
-(cap.~8) recomenda normalizar antes de valuar, usando uma das duas abordagens:
+(cap.~8) recomenda normalizar antes de avaliar, usando uma das duas abordagens:
 
 \begin{description}
   \item[Média histórica]
@@ -337,7 +339,7 @@ expected<Currency, ValuationError>
 normalize_ebit(const NormalizationInputs& inputs);
 \end{lstlisting}
 
-\begin{exemplo}{Petrobras — média histórica do ciclo}
+\begin{exemplo}{Petrobras --- média histórica do ciclo}
 \begin{lstlisting}[style=cpp, numbers=none]
 auto result = normalize_ebit(NormalizationInputs{
     .method = NormalizationMethod::HistoricalAverage,
@@ -597,7 +599,7 @@ $E_w = 2/3$, $\Ke = 4629/40000$, $D_w = 1/3$, $\Kd = 578/10000$, $t = 17/50$:
 %% ════════════════════════════════════════════════════════════════════════════════
 \chapter{Fluxo de Caixa Livre}
 
-\section{FCFF — Free Cash Flow to Firm}
+\section{FCFF --- Free Cash Flow to Firm}
 
 \subsection{Fórmula}
 
@@ -636,7 +638,7 @@ project_fcff(const FCFFProjection& proj);
 A projeção é exata: cada período aplica \texttt{Currency::scale} com fator
 $(1+g)$ representado como \texttt{Rational}.
 
-\section{FCFE — Free Cash Flow to Equity}
+\section{FCFE --- Free Cash Flow to Equity}
 
 \subsection{Fórmula}
 
@@ -755,7 +757,7 @@ fundamental_growth_equity(Rational roe, Rational retention_ratio);
 \end{lstlisting}
 
 %% ════════════════════════════════════════════════════════════════════════════════
-\chapter{DCF — Desconto de Fluxos de Caixa}
+\chapter{DCF --- Desconto de Fluxos de Caixa}
 
 \section{Modelo Padrão: FCFF e WACC}
 
@@ -823,7 +825,7 @@ expected<DCFResult, ValuationError>
 compute_dcf(const DCFInputs& inputs);
 \end{lstlisting}
 
-\section{DDM — Dividend Discount Model}
+\section{DDM --- Dividend Discount Model}
 
 O DDM substitui FCFF por dividendos e desconta a $\Ke$:
 
@@ -849,7 +851,7 @@ linearmente} de $g_H$ para $g_L$ ao longo de $2H$ anos:
   \label{eq:hmodel}
 \end{equation}
 
-Todo o cálculo é \emph{exato} em aritmética racional — não há desconto
+Todo o cálculo é \emph{exato} em aritmética racional --- não há desconto
 temporal envolvido.
 
 \begin{lstlisting}[style=cpp]
@@ -942,7 +944,7 @@ terminal_value_by_multiple(Currency terminal_ebitda,
 \end{lstlisting}
 
 %% ════════════════════════════════════════════════════════════════════════════════
-\chapter{APV — Adjusted Present Value}
+\chapter{APV --- Adjusted Present Value}
 
 \section{Motivação}
 
@@ -1135,7 +1137,7 @@ expected<JustifiedMultiples, ValuationError>
 compute_justified_multiples(const JustifiedMultiplesInputs& inputs);
 \end{lstlisting}
 
-\begin{exemplo}{Petrobras — múltiplos justificados (ROE normalizado = 15\%)}
+\begin{exemplo}{Petrobras --- múltiplos justificados (ROE normalizado = 15\%)}
 Com $\Ke = 11{,}57\%$, $\WACC = 8{,}99\%$, $\ROE_{\text{norm}} = 15\%$,
 payout $= 60\%$, $\ROIC = 16{,}63\%$, $t = 34\%$:
 \[
@@ -1327,7 +1329,7 @@ $\mathcal{N}(x) = \tfrac{1}{2}\,\mathrm{erfc}\!\left(-x/\sqrt{2}\right)$
 
 \begin{itemize}
   \item A dívida (depósitos, CDBs) é \emph{matéria-prima}, não fonte de
-        financiamento capex — não faz sentido calcular FCFF ou WACC.
+        financiamento capex --- não faz sentido calcular FCFF ou WACC.
   \item O reinvestimento é regulado: Basileia III exige capital mínimo
         sobre os ativos ponderados pelo risco (RWA).
   \item O custo de capital relevante é apenas $\Ke$.
@@ -1382,7 +1384,7 @@ gerados por \texttt{compute\_bank\_fcfe}.
 \midrule
 Receita líquida & 500 & \texttt{B(500)} \\
 EBIT histórico 2019--2023 & 80, 95, 145, 165, 145 & \texttt{B(80)\ldots} \\
-EBIT normalizado (média) & 126 & — \\
+EBIT normalizado (média) & 126 & --- \\
 D\&A & 45 & \texttt{B(45)} \\
 CapEx & 70 & \texttt{B(70)} \\
 $\Delta$CGN & 5 & \texttt{B(5)} \\
@@ -1442,7 +1444,7 @@ H-Model (dividendos)   & R\$54,11 & \texttt{ddm} \\
 Cenários (transição E) & R\$24,42 & \texttt{startup} \\
 EVA / Excess Returns   & R\$58,51 & \texttt{excess\_returns} \\
 \midrule
-Cotação mercado (2024) & R\$38--42 & — \\
+Cotação mercado (2024) & R\$38--42 & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1450,7 +1452,7 @@ Cotação mercado (2024) & R\$38--42 & — \\
 \begin{atencao}
 A discrepância entre modelos é \emph{esperada e informativa}:
 \begin{itemize}
-  \item O \textbf{FCFE} usa NI de 2023 (R\$124B) sem normalização — inflado pelo ciclo
+  \item O \textbf{FCFE} usa NI de 2023 (R\$124B) sem normalização --- inflado pelo ciclo
         de petróleo elevado;
   \item O \textbf{APV} não inclui benefício da dívida nas taxas de crescimento,
         de modo que o TV é menor;
@@ -1636,7 +1638,7 @@ Damodaran, A.
 
 \bibitem{ratmoney}
 \textit{ratmoney} --- Biblioteca C++23 para aritmética monetária racional exata.
-\url{https://github.com/flavop/ratmoney}
+\url{https://github.com/sheep-farm/ratmoney}
 
 \end{thebibliography}
 
