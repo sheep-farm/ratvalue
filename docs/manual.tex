@@ -224,7 +224,8 @@ int main() {
 import ratvalue as rv
 
 fcffs = rv.project_fcff(
-    rv.compute_fcff(ebit_b=126, tax_rate=0.34, da_b=45, capex_b=70),
+    rv.compute_fcff(ebit_b=126, tax_rate=0.34, da_b=45,
+                    capex_b=70, delta_nwc_b=5),
     stages=[(0.03, 5)]
 )
 ke   = rv.cost_of_equity(rf=0.05, beta=1.30, erp=0.05)
