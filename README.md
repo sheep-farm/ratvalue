@@ -203,4 +203,5 @@ ctest --test-dir build -V
 
 ## License
 
-MIT
+[AGPL-3.0](LICENSE) — free for open-source use. Commercial use requires a
+separate license; contact the author.
