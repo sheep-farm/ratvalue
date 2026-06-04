@@ -1,4 +1,5 @@
 build/
+build_py/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
@@ -7,3 +8,7 @@ compile_commands.json
 *.a
 *.so
 *.so.*
+docs/*.aux
+docs/*.log
+docs/*.out
+docs/*.toc
