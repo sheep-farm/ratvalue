@@ -40,6 +40,11 @@ endif()
 add_executable(main_bin main.cpp)
 target_link_libraries(main_bin PRIVATE RatValue::Static)
 
+option(BUILD_PYTHON "Build Python bindings via nanobind" OFF)
+if(BUILD_PYTHON)
+    add_subdirectory(python)
+endif()
+
 enable_testing()
 add_executable(test_bin test.cpp)
 target_link_libraries(test_bin PRIVATE RatValue::Static GTest::gtest_main)
