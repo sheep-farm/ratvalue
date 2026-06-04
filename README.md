@@ -164,8 +164,11 @@ Model comparison:
 
 ## Documentation
 
-A full user manual covering theory, API reference, and worked examples is
-available in [`docs/manual.pdf`](docs/manual.pdf) (42 pages).
+A full user manual (51 pages) covering theory, C++ and Python API reference,
+and worked examples is available in two formats:
+
+- **PDF:** [`docs/manual.pdf`](docs/manual.pdf)
+- **Raw download:** `https://github.com/sheep-farm/ratvalue/raw/master/docs/manual.pdf`
 
 ## Test suite
 
