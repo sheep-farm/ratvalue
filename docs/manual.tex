@@ -23,37 +23,12 @@
 \usepackage{mathtools}
 \usepackage{tikz}
 \usepackage{pdflscape}
-\usetikzlibrary{arrows.meta, calc}
+\usepackage{graphicx}
 \usepackage{lmodern}
 
 \tcbuselibrary{skins, breakable}
 
 %% ── C++ code style ─────────────────────────────────────────────────────────────
-%% ── Flowchart colours (Chapter 14) ────────────────────────────────────────────
-\colorlet{FCi}{blue!12}   \colorlet{FBi}{blue!55!black}
-\colorlet{FCc}{green!13}  \colorlet{FBc}{green!45!black}
-\colorlet{FCo}{yellow!25} \colorlet{FBo}{orange!75!black}
-\colorlet{FCa}{violet!10} \colorlet{FBa}{violet!70!black}
-\colorlet{FCgr}{gray!7}   \colorlet{FBgr}{gray!45}
-
-\tikzset{
-  Finp/.style  = {draw=FBi, fill=FCi, thick, rounded corners=3pt,
-                  minimum width=3.5cm, minimum height=0.62cm,
-                  align=center, font=\small, inner sep=3pt},
-  Fcmp/.style  = {draw=FBc, fill=FCc, thick, rounded corners=3pt,
-                  minimum width=3.5cm, minimum height=0.62cm,
-                  align=center, font=\small, inner sep=3pt},
-  Fres/.style  = {draw=FBo, fill=FCo, thick, rounded corners=3pt,
-                  minimum width=3.5cm, minimum height=0.62cm,
-                  align=center, font=\small, inner sep=3pt},
-  Faltm/.style = {draw=FBa, fill=FCa, thick, rounded corners=3pt,
-                  minimum width=3.0cm, minimum height=0.72cm,
-                  align=center, font=\small, inner sep=3pt},
-  Fgrp/.style  = {draw=FBgr, fill=FCgr, dashed, thick, rounded corners=5pt},
-  Farr/.style  = {-{Stealth[length=5pt]}, thick, FBgr},
-  Farrd/.style = {-{Stealth[length=5pt]}, thick, FBa!75, dashed},
-}
-
 %% ── Code colours ───────────────────────────────────────────────────────────────
 \definecolor{cppblue}{rgb}{0.0,0.25,0.6}
 \definecolor{cppgreen}{rgb}{0.0,0.45,0.1}
@@ -1682,142 +1657,7 @@ alternative valuation models.
 \begin{landscape}
 \vspace*{\fill}
 \begin{center}
-{\large\bfseries ratvalue\enspace---\enspace Computational Graph}\\[0.3em]
-{\small\itshape
-Solid arrows = exact rational arithmetic \quad
-Dashed arrows = shared infrastructure (double discounting)}\\[0.8em]
-
-\begin{tikzpicture}[x=1cm, y=1.0cm]
-
-%% Group backgrounds
-\draw[Fgrp] (-0.35,0.4) rectangle (3.95,-6.15);
-\node[font=\footnotesize\bfseries, text=FBi] at (1.8,0.25) {Cost of Capital};
-\draw[Fgrp] (5.05,0.4) rectangle (9.75,-6.15);
-\node[font=\footnotesize\bfseries, text=FBc] at (7.4,0.25) {Cash Flows};
-\draw[Fgrp] (10.7,0.4) rectangle (15.1,-6.15);
-\node[font=\footnotesize\bfseries, text=FBo] at (12.9,0.25) {DCF};
-\draw[Fgrp] (-0.35,-6.55) rectangle (15.1,-10.0);
-\node[font=\footnotesize\bfseries, text=FBa] at (7.37,-6.73)
-  {Alternative Valuation Models};
-
-%% Column A: Cost of Capital
-\node[Finp] (rawbeta) at (1.8,0.0)
-  {Comparables\\$\beta_L^{(i)},\;D/E_i,\;t_i$};
-\node[Fcmp] (hamada) at (1.8,-1.15)
-  {Hamada\\$\beta_L = \beta_U[1+(1-t)\,D/E]$};
-\node[Fcmp] (capm) at (1.8,-2.3)
-  {CAPM\\$K_e = R_f + \beta_L\,\mathrm{ERP} + \lambda\,\mathrm{CRP}$};
-\node[Finp] (finkd) at (1.8,-3.3)
-  {EBIT,\; Interest expense};
-\node[Fcmp] (icr) at (1.8,-4.2)
-  {$\mathrm{ICR} = \mathrm{EBIT}\,/\,\mathrm{Interest}$};
-\node[Fcmp] (kd) at (1.8,-5.1)
-  {Synthetic $K_d$\\rating table (Damodaran 2023)};
-\node[Fcmp] (wacc) at (1.8,-6.05)
-  {$\mathrm{WACC} = \tfrac{E}{V}K_e + \tfrac{D}{V}K_d(1-t)$};
-
-\draw[Farr] (rawbeta) -- (hamada);
-\draw[Farr] (hamada)  -- (capm);
-\draw[Farr] (finkd)   -- (icr);
-\draw[Farr] (icr)     -- (kd);
-\draw[Farr] (kd)      -- (wacc);
-\draw[Farr] (capm.south) -- ++(0,-0.35) -| ($(wacc.north west)+(0.3,0)$);
-
-%% Column B: Cash Flows
-\node[Finp] (stmts) at (7.4,0.0)
-  {Financial statements\\EBIT, D\&A, CapEx, $\Delta$NWC};
-\node[Fcmp] (norm) at (7.4,-1.15)
-  {Normalize EBIT\\hist.\ avg.\ $|$\ norm.\ margin\quad[exact]};
-\node[Fcmp] (fcff) at (7.4,-2.3)
-  {$\mathrm{FCFF}=\mathrm{EBIT}(1{-}t)+\mathrm{D\&A}-\mathrm{CapEx}-\Delta\mathrm{NWC}$\\{[exact]}};
-\node[Finp] (gstage) at (9.6,-2.3)
-  {Stages $(g_k,n_k)$};
-\node[Fcmp] (proj) at (7.4,-3.5)
-  {Multi-stage projection\\$F_t = F_{t-1}(1+g_k)$\quad[exact]};
-\node[Fcmp] (tv) at (7.4,-5.1)
-  {Terminal Value (Gordon)\\$\mathrm{TV}=F_N\cdot\dfrac{1+g}{\mathrm{WACC}-g}$\quad[exact mul.]};
-
-\draw[Farr] (stmts)       -- (norm);
-\draw[Farr] (norm)        -- (fcff);
-\draw[Farr] (fcff)        -- (proj);
-\draw[Farr] (gstage.west) -- (proj.east);
-\draw[Farr] (proj)        -- (tv);
-
-%% Column C: DCF
-\node[Fcmp] (pv) at (12.9,-1.8)
-  {Discount\\$\mathrm{PV}_t = F_t(1+\mathrm{WACC})^{-t}$\quad[double]};
-\node[Fcmp] (ev) at (12.9,-3.0)
-  {Enterprise Value\\$\mathrm{EV} = \sum\mathrm{PV}_t + \mathrm{PV(TV)}$};
-\node[Finp] (dnet) at (14.8,-3.0)
-  {$D_{\mathrm{net}}$};
-\node[Fres] (eqv) at (12.9,-4.2)
-  {Equity Value\\$= \mathrm{EV} - D_{\mathrm{net}}$};
-\node[Fres] (price) at (12.9,-5.4)
-  {\bfseries Fair Value per Share\\$P = \mathrm{Equity}\,/\,n_{\mathrm{shares}}$};
-
-\draw[Farr] (pv)        -- (ev);
-\draw[Farr] (dnet.west) -- (eqv.east);
-\draw[Farr] (ev)        -- (eqv);
-\draw[Farr] (eqv)       -- (price);
-\draw[Farr] (tv.east)       -- ++(0.35,0) |- ($(pv.west)+(0,-0.13)$);
-\draw[Farr] (proj.east)     -- ++(0.2,0)  |- ($(pv.west)+(0,-0.26)$);
-\draw[Farr] (wacc.east)     to[out=0,in=180] ($(pv.west)+(0,0.13)$);
-
-%% Alternative models — row 1
-\node[Faltm] (apvmm)   at (1.5 ,-7.35)
-  {APV (MM)\\$V_U + t\cdot D$};
-\node[Faltm] (apvme)   at (4.7 ,-7.35)
-  {APV (Miles-Ezzell)\\$V_U + \tfrac{tK_dD(1+K_u)}{(1+K_d)(K_u-g)}$};
-\node[Faltm] (fcfedcf) at (7.9 ,-7.35)
-  {FCFE DCF\\$\sum\!\mathrm{FCFE}_t(1+K_e)^{-t}$};
-\node[Faltm] (ddmh)    at (11.1,-7.35)
-  {DDM / H-Model\\$\sum D_t(1+K_e)^{-t}$};
-\node[Faltm] (eva)     at (14.3,-7.35)
-  {EVA / Excess Returns\\$\mathrm{IC}+\mathrm{PV(EVA)}$};
-
-%% Alternative models — row 2
-\node[Faltm] (capst) at (1.5 ,-8.85)
-  {Optimal Cap.\ Structure\\$\arg\min_d\,\mathrm{WACC}(d)$};
-\node[Faltm] (mert)  at (4.7 ,-8.85)
-  {Merton (Distress)\\$E=VN(d_1)-De^{-rT}N(d_2)$};
-\node[Faltm] (bank)  at (7.9 ,-8.85)
-  {Bank FCFE\\$\mathrm{NI}(1-\Delta\mathrm{RWA}\cdot t_1/\mathrm{NI})$};
-\node[Faltm] (scen)  at (11.1,-8.85)
-  {Scenario Valuation\\$\sum P_i V_i\cdot P_{\mathrm{surv}}$};
-\node[Faltm] (relat) at (14.3,-8.85)
-  {Justified Multiples\\$P/E,\;P/BV,\;\mathrm{EV/EBITDA}$};
-
-\draw[Farrd] (proj.south) to[out=-90,in=90] (apvmm.north);
-\draw[Farrd] (proj.south) to[out=-90,in=90] (apvme.north);
-\draw[Farrd] (proj.south) to[out=-90,in=90] (fcfedcf.north);
-\draw[Farrd] (proj.south) to[out=-90,in=90] (ddmh.north);
-\draw[Farrd] (proj.south) to[out=-90,in=90] (eva.north);
-\draw[Farrd] (tv.south)   to[out=-90,in=90] (scen.north);
-\draw[Farrd] (wacc.south) to[out=-90,in=90] (capst.north);
-\draw[Farrd] (capm.south) to[out=-90,in=90] (relat.north);
-
-%% Legend
-\node[Finp,  minimum width=2.0cm, minimum height=0.48cm,
-     font=\scriptsize] at (17.8,-0.3) {Input};
-\node[Fcmp,  minimum width=2.0cm, minimum height=0.48cm,
-     font=\scriptsize] at (17.8,-0.9) {Computation};
-\node[Fres,  minimum width=2.0cm, minimum height=0.48cm,
-     font=\scriptsize] at (17.8,-1.5) {Output};
-\node[Faltm, minimum width=2.0cm, minimum height=0.48cm,
-     font=\scriptsize] at (17.8,-2.1) {Alt.\ model};
-\node[font=\scriptsize\bfseries]   at (17.8, 0.2) {Legend};
-\draw[Farr]  (16.9,-2.8) -- ++(1.8,0)
-  node[right,font=\scriptsize]{exact Rational};
-\draw[Farrd] (16.9,-3.3) -- ++(1.8,0)
-  node[right,font=\scriptsize]{double / shared};
-
-\end{tikzpicture}
-
-\vspace{0.5em}
-{\small\itshape
-\textbf{Exact:} \texttt{Rational} or \texttt{Currency::scale} --- no floating-point rounding.\quad
-\textbf{Double:} discount factors $(1+r)^{-t}$; PV sums.\quad
-Terminal value multiplier $\tfrac{1+g}{r-g}$ is exact \texttt{Rational} before discounting.}
+\includegraphics[width=\linewidth, page=1]{flowchart.pdf}
 \end{center}
 \vspace*{\fill}
 \end{landscape}
