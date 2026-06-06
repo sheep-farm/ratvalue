@@ -11,7 +11,7 @@ cost_of_equity(const CAPMInputs& inputs) {
      || inputs.lambda.num < 0)
         return std::unexpected(ValuationError::InvalidInput);
 
-    // β × ERP_maduro
+    // β × ERP_mature
     auto beta_erp = detail::r_mul(inputs.beta, inputs.equity_risk_premium);
     if (!beta_erp) return std::unexpected(beta_erp.error());
 

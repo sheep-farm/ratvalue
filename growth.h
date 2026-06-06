@@ -8,41 +8,41 @@ namespace ratvalue {
 // ── ROIC (Return on Invested Capital) ────────────────────────────────────────
 
 struct ROICInputs {
-    ratmoney::Currency nopat;             // EBIT × (1-t) — na mesma moeda
-    ratmoney::Currency invested_capital;  // patrimônio líquido contábil + dívida líquida
+    ratmoney::Currency nopat;             // EBIT × (1-t) — in the same currency
+    ratmoney::Currency invested_capital;  // book equity + net debt
 };
 
-// ROIC = NOPAT / Invested Capital  (adimensional)
+// ROIC = NOPAT / Invested Capital  (dimensionless)
 [[nodiscard]] std::expected<ratmoney::Rational, ValuationError>
 compute_roic(const ROICInputs& inputs);
 
-// ── Taxa de Reinvestimento ────────────────────────────────────────────────────
+// ── Reinvestment Rate ─────────────────────────────────────────────────────────
 
 struct ReinvestmentRateInputs {
     ratmoney::Currency capex;
     ratmoney::Currency depreciation_amortization;
     ratmoney::Currency delta_nwc;
-    ratmoney::Currency nopat;   // base para normalização
+    ratmoney::Currency nopat;   // normalization base
 };
 
-// RR = (CapEx - D&A + ΔCGN) / NOPAT
-// Pode ser > 1 (reinvestimento acima do NOPAT) ou negativo (desinvestimento)
+// RR = (CapEx - D&A + ΔNWC) / NOPAT
+// Can be > 1 (reinvestment above NOPAT) or negative (disinvestment)
 [[nodiscard]] std::expected<ratmoney::Rational, ValuationError>
 compute_reinvestment_rate(const ReinvestmentRateInputs& inputs);
 
-// ── Crescimento Fundamental da Firma ─────────────────────────────────────────
+// ── Fundamental Growth of the Firm ───────────────────────────────────────────
 
-// g_firma = ROIC × Taxa de Reinvestimento
-// Garante consistência entre crescimento assumido e capital alocado.
+// g_firm = ROIC × Reinvestment Rate
+// Ensures consistency between assumed growth and allocated capital.
 [[nodiscard]] std::expected<ratmoney::Rational, ValuationError>
 fundamental_growth_firm(ratmoney::Rational roic,
                          ratmoney::Rational reinvestment_rate);
 
-// ── ROE e Crescimento Fundamental do Equity ──────────────────────────────────
+// ── ROE and Fundamental Growth of Equity ─────────────────────────────────────
 
 struct ROEInputs {
     ratmoney::Currency net_income;
-    ratmoney::Currency book_equity;  // patrimônio líquido contábil
+    ratmoney::Currency book_equity;  // book equity
 };
 
 // ROE = Net Income / Book Equity  (adimensional)

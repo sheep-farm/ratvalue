@@ -6,45 +6,45 @@
 
 namespace ratvalue {
 
-// Rating de crédito sintético (escala Moody's/S&P simplificada, 15 níveis)
+// Synthetic credit rating (simplified Moody's/S&P scale, 15 levels)
 enum class CreditRating : uint8_t {
     AAA, AA, A_plus, A, A_minus, BBB, BB_plus, BB, B_plus, B, B_minus, CCC, CC, C, D
 };
 
 std::string_view rating_name(CreditRating r) noexcept;
 
-// Spread de default em basis points para cada rating (tabela Damodaran 2023)
+// Default spread in basis points for each rating (Damodaran 2023 table)
 int32_t rating_spread_bps(CreditRating r) noexcept;
 
-// ── Kd Sintético (Damodaran) ──────────────────────────────────────────────────
+// ── Synthetic Kd (Damodaran) ──────────────────────────────────────────────────
 //
-// Método: ICR = EBIT / Despesa Financeira  →  rating sintético  →  Kd = Rf + spread
+// Method: ICR = EBIT / Interest Expense  →  synthetic rating  →  Kd = Rf + spread
 //
-// Elimina a dependência de bonds negociados — útil para empresas fechadas,
-// emergentes sem rating local ou qualquer análise de estrutura de capital.
+// Eliminates dependence on traded bonds — useful for private firms,
+// emerging-market firms without local ratings, or any capital structure analysis.
 //
-// Duas tabelas disponíveis (Damodaran, "Ratings, Interest Coverage and Default Spread"):
-//   large_firm = true  → thresholds para empresas de grande porte
-//   large_firm = false → thresholds mais exigentes para pequenas empresas
+// Two tables available (Damodaran, "Ratings, Interest Coverage and Default Spread"):
+//   large_firm = true  → thresholds for large firms
+//   large_firm = false → stricter thresholds for small firms
 
 struct SyntheticKdInputs {
     ratmoney::Currency ebit;
-    ratmoney::Currency interest_expense;  // despesa financeira líquida
+    ratmoney::Currency interest_expense;  // net interest expense
     ratmoney::Rational risk_free_rate;
     bool               large_firm{true};
 };
 
 struct SyntheticKdResult {
-    ratmoney::Rational cost_of_debt;      // Kd = Rf + spread  (como Rational exato)
-    ratmoney::Rational default_spread;    // spread isolado
+    ratmoney::Rational cost_of_debt;      // Kd = Rf + spread  (as exact Rational)
+    ratmoney::Rational default_spread;    // spread in isolation
     CreditRating       rating;
-    double             interest_coverage; // ICR calculado
+    double             interest_coverage; // computed ICR
 };
 
 [[nodiscard]] std::expected<SyntheticKdResult, ValuationError>
 synthetic_cost_of_debt(const SyntheticKdInputs& inputs);
 
-// Versão direta: ICR fornecido como double (para uso interno no otimizador)
+// Direct version: ICR supplied as double (for internal use in optimizer)
 [[nodiscard]] std::expected<SyntheticKdResult, ValuationError>
 synthetic_cost_of_debt_from_icr(double icr,
                                   ratmoney::Rational risk_free_rate,

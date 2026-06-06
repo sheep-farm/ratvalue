@@ -12,7 +12,7 @@ compute_ddm(const DDMInputs& inputs) {
     if (inputs.cost_of_equity.num <= 0)
         return std::unexpected(ValuationError::InvalidInput);
 
-    // Verifica Ke > g_terminal
+    // Verify Ke > g_terminal
     {
         __int128 lhs = static_cast<__int128>(inputs.cost_of_equity.num)
                      * inputs.stable_growth.den;
@@ -22,7 +22,7 @@ compute_ddm(const DDMInputs& inputs) {
             return std::unexpected(ValuationError::WACCLEGrowth);
     }
 
-    // Projeta dividendos explícitos reutilizando project_fcff
+    // Project explicit dividends reusing project_fcff
     auto div_result = project_fcff(
         FCFFProjection{inputs.base_dividend_per_share, inputs.stages});
     if (!div_result) return std::unexpected(div_result.error());
@@ -35,14 +35,14 @@ compute_ddm(const DDMInputs& inputs) {
     const double ke_d = static_cast<double>(inputs.cost_of_equity.num)
                       / inputs.cost_of_equity.den;
 
-    // PV dos dividendos explícitos
+    // PV of explicit dividends
     double pv_sum = 0.0;
     for (int t = 0; t < n; ++t) {
         double discount = std::pow(1.0 + ke_d, -(t + 1));
         pv_sum += detail::to_double(divs[t]) * discount;
     }
 
-    // TV = D_N × (1+g) / (Ke - g)  →  multiplicador como Rational exato
+    // TV = D_N × (1+g) / (Ke - g)  →  multiplier as exact Rational
     const auto& g  = inputs.stable_growth;
     const auto& ke = inputs.cost_of_equity;
 
@@ -85,7 +85,7 @@ compute_h_model(const HModelInputs& inputs) {
     if (inputs.half_life.num <= 0)
         return std::unexpected(ValuationError::InvalidInput);
 
-    // Ke > g_estável
+    // Ke > g_stable
     {
         __int128 lhs = static_cast<__int128>(inputs.cost_of_equity.num)
                      * inputs.stable_growth.den;
@@ -95,7 +95,7 @@ compute_h_model(const HModelInputs& inputs) {
     }
 
     // P = D₀ × [(1+g_l) + H×(g_h - g_l)] / (Ke - g_l)
-    // Tudo como aritmética racional exata via detail::*
+    // All as exact rational arithmetic via detail::*
 
     const auto& g_h = inputs.high_growth;
     const auto& g_l = inputs.stable_growth;
@@ -107,23 +107,23 @@ compute_h_model(const HModelInputs& inputs) {
     if (!one_plus_gl) return std::unexpected(one_plus_gl.error());
 
     // (g_h - g_l)
-    auto diff_g = detail::r_sub(g_h, g_l);    // pode ser negativo se g_h < g_l
+    auto diff_g = detail::r_sub(g_h, g_l);    // can be negative if g_h < g_l
     if (!diff_g) return std::unexpected(diff_g.error());
 
     // H × (g_h - g_l)
     auto h_times_diff = detail::r_mul(H, *diff_g);
     if (!h_times_diff) return std::unexpected(h_times_diff.error());
 
-    // (1+g_l) + H×(g_h-g_l)  — numerador do multiplicador
+    // (1+g_l) + H×(g_h-g_l)  — multiplier numerator
     auto numerator = detail::r_add(*one_plus_gl, *h_times_diff);
     if (!numerator) return std::unexpected(numerator.error());
 
-    // (Ke - g_l)  — denominador do multiplicador
+    // (Ke - g_l)  — multiplier denominator
     auto denominator = detail::r_sub(ke, g_l);
     if (!denominator) return std::unexpected(denominator.error());
     if (denominator->num <= 0) return std::unexpected(ValuationError::WACCLEGrowth);
 
-    // multiplicador = numerator / denominator
+    // multiplier = numerator / denominator
     auto multiplier = detail::make_rational(
         static_cast<__int128>(numerator->num) * denominator->den,
         static_cast<__int128>(numerator->den) * denominator->num);

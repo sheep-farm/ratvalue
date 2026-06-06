@@ -37,12 +37,12 @@ compute_apv(const APVInputs& inputs) {
     const double ku_d = static_cast<double>(inputs.unlevered_cost_of_equity.num)
                       / inputs.unlevered_cost_of_equity.den;
 
-    // Valor desalavancado: PV(FCFFs @ Ku) + PV(TV @ Ku)
+    // Unlevered value: PV(FCFFs @ Ku) + PV(TV @ Ku)
     double pv_sum = 0.0;
     for (int t = 0; t < n; ++t)
         pv_sum += detail::to_double(fcff[t]) * std::pow(1.0 + ku_d, -(t + 1));
 
-    // TV = FCFF_N × (1+g) / (Ku − g)   — multiplicador Rational exato
+    // TV = FCFF_N × (1+g) / (Ku − g)   — exact Rational multiplier
     const auto& g  = inputs.terminal_growth;
     const auto& ku = inputs.unlevered_cost_of_equity;
 
@@ -61,8 +61,8 @@ compute_apv(const APVInputs& inputs) {
     auto unlevered = detail::make_currency_from_double(pv_sum, rate, desc);
     if (!unlevered) return std::unexpected(unlevered.error());
 
-    // PV(Tax Shield) = t × D   (Modigliani-Miller, dívida permanente)
-    // Cálculo exato via Currency::scale — nenhuma conversão para double.
+    // PV(Tax Shield) = t × D   (Modigliani-Miller, permanent debt)
+    // Exact computation via Currency::scale — no conversion to double.
     auto pv_ts = inputs.debt_market_value.scale(inputs.tax_rate);
     if (!pv_ts) return std::unexpected(ValuationError::MoneyError);
 
@@ -70,7 +70,7 @@ compute_apv(const APVInputs& inputs) {
     auto apv_val = unlevered->add(*pv_ts);
     if (!apv_val) return std::unexpected(ValuationError::MoneyError);
 
-    // Equity = APV − dívida líquida
+    // Equity = APV − net debt
     auto equity = apv_val->subtract(inputs.net_debt);
     if (!equity) return std::unexpected(ValuationError::MoneyError);
 
@@ -120,7 +120,7 @@ compute_apv_miles_ezzell(const APVMilesEzzellInputs& inputs) {
     const double ku_d = static_cast<double>(inputs.unlevered_cost_of_equity.num)
                       / inputs.unlevered_cost_of_equity.den;
 
-    // Valor desalavancado: idêntico ao MM
+    // Unlevered value: identical to MM
     double pv_sum = 0.0;
     for (int t = 0; t < n; ++t)
         pv_sum += detail::to_double(fcff[t]) * std::pow(1.0 + ku_d, -(t + 1));
@@ -140,11 +140,11 @@ compute_apv_miles_ezzell(const APVMilesEzzellInputs& inputs) {
     if (!unlevered) return std::unexpected(unlevered.error());
 
     // PV(TS)_ME = t × Kd × D × (1+Ku) / [(1+Kd) × (Ku−g)]
-    // Multiplicador como Rational exato:
+    // Exact Rational multiplier:
     //   num = t.num × Kd.num × (Ku.den + Ku.num) × Kd.den  [= t × Kd × (1+Ku)]
     //   den = t.den × Kd.den × (Ku.den + Kd.num) × (Ku.num×g.den − g.num×Ku.den)
     //       = t.den × (1+Kd).den × (1+Kd).num_denom × (Ku−g)_denom
-    // Mais claro passo a passo:
+    // Clearer step by step:
 
     const auto& kd  = inputs.cost_of_debt;
 
@@ -165,7 +165,7 @@ compute_apv_miles_ezzell(const APVMilesEzzellInputs& inputs) {
     if (!ku_minus_g || ku_minus_g->num <= 0)
         return std::unexpected(ValuationError::WACCLEGrowth);
 
-    // multiplicador = t×Kd × (1+Ku) / [(1+Kd) × (Ku−g)]
+    // multiplier = t×Kd × (1+Ku) / [(1+Kd) × (Ku−g)]
     auto numer = detail::r_mul(*t_kd, *one_plus_ku);
     if (!numer) return std::unexpected(numer.error());
 

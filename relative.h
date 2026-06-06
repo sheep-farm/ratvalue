@@ -5,17 +5,17 @@
 
 namespace ratvalue {
 
-// ── Múltiplos Justificados (Damodaran, Investment Valuation ch. 17-20) ────────
+// ── Justified Multiples (Damodaran, Investment Valuation ch. 17-20) ──────────
 //
-// Derivam do Gordon Growth Model.  Não são preços de mercado — são os
-// múltiplos que seriam JUSTOS dado o crescimento, a rentabilidade e o custo
-// de capital da empresa.  A diferença entre o múltiplo de mercado e o
-// justificado revela se o ativo está caro, barato ou precificado corretamente.
+// Derived from the Gordon Growth Model.  These are not market prices — they are
+// the multiples that would be FAIR given the firm's growth, profitability and
+// cost of capital.  The gap between market and justified multiple reveals
+// whether the asset is expensive, cheap, or correctly priced.
 //
-// Hipóteses:
-//   g_equity = ROE × (1 − payout)     — crescimento fundamental do equity
-//   RR_firma = g_equity / ROIC        — reinvestimento necessário para sustentar g
-//   g_firma  = ROIC × RR = g_equity   — firmas com ROE = ROIC (consistência)
+// Assumptions:
+//   g_equity = ROE × (1 − payout)     — fundamental equity growth
+//   RR_firm  = g_equity / ROIC        — reinvestment needed to sustain g
+//   g_firm   = ROIC × RR = g_equity   — firms where ROE = ROIC (consistency)
 //
 // P/E    = payout / (Ke − g_equity)
 // P/BV   = ROE × payout / (Ke − g_equity)   = ROE × P/E
@@ -24,18 +24,18 @@ namespace ratvalue {
 struct JustifiedMultiplesInputs {
     ratmoney::Rational cost_of_equity;  // Ke
     ratmoney::Rational wacc;
-    ratmoney::Rational roe;             // ROE = NI / PL contábil
-    ratmoney::Rational payout_ratio;    // dividendos / NI  ∈ [0,1]
-    ratmoney::Rational roic;            // ROIC = NOPAT / Capital Investido
+    ratmoney::Rational roe;             // ROE = NI / book equity
+    ratmoney::Rational payout_ratio;    // dividends / NI  ∈ [0,1]
+    ratmoney::Rational roic;            // ROIC = NOPAT / Invested Capital
     ratmoney::Rational tax_rate;        // t
 };
 
 struct JustifiedMultiples {
-    ratmoney::Rational pe_ratio;             // P/L justificado
-    ratmoney::Rational pb_ratio;             // P/VP justificado
-    ratmoney::Rational ev_ebitda;            // EV/EBITDA justificado
-    ratmoney::Rational g_equity;             // crescimento fundamental implícito
-    ratmoney::Rational implied_reinvestment; // RR = g / ROIC  (para EV/EBITDA)
+    ratmoney::Rational pe_ratio;             // justified P/E
+    ratmoney::Rational pb_ratio;             // justified P/BV
+    ratmoney::Rational ev_ebitda;            // justified EV/EBITDA
+    ratmoney::Rational g_equity;             // implied fundamental growth
+    ratmoney::Rational implied_reinvestment; // RR = g / ROIC  (for EV/EBITDA)
 };
 
 // Verifica Ke > g_equity e WACC > g_equity.

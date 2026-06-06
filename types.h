@@ -5,14 +5,14 @@
 namespace ratvalue {
 
 enum class ValuationError {
-    InvalidInput,      // entrada negativa ou inválida
-    WACCLEGrowth,      // WACC ≤ taxa de crescimento terminal (denominador Gordon ≤ 0)
-    Overflow,          // overflow aritmético
-    MoneyError,        // CurrencyError do ratmoney
-    CurrencyMismatch,  // inputs monetários em denominações diferentes
+    InvalidInput,      // negative or invalid input
+    WACCLEGrowth,      // WACC ≤ terminal growth rate (Gordon denominator ≤ 0)
+    Overflow,          // arithmetic overflow
+    MoneyError,        // CurrencyError from ratmoney
+    CurrencyMismatch,  // monetary inputs in different denominations
 };
 
-// Estágio de crescimento: taxa e número de anos
+// Growth stage: rate and number of years
 struct ProjectionStage {
     ratmoney::Rational growth_rate;
     int                periods;

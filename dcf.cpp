@@ -13,7 +13,7 @@ compute_dcf(const DCFInputs& inputs) {
     if (inputs.wacc.num <= 0)
         return std::unexpected(ValuationError::InvalidInput);
 
-    // Verifica WACC > g_terminal:  wacc.num × g.den > g.num × wacc.den
+    // Verify WACC > g_terminal:  wacc.num × g.den > g.num × wacc.den
     {
         __int128 lhs = static_cast<__int128>(inputs.wacc.num)
                      * inputs.terminal_growth.den;
@@ -25,7 +25,7 @@ compute_dcf(const DCFInputs& inputs) {
 
     const auto& fcff = inputs.projected_fcff;
 
-    // Todos os FCFFs e dívida líquida devem estar na mesma denominação
+    // All FCFFs and net debt must share the same denomination
     for (const auto& f : fcff)
         if (!detail::same_currency(f, fcff.front()))
             return std::unexpected(ValuationError::CurrencyMismatch);
@@ -39,15 +39,15 @@ compute_dcf(const DCFInputs& inputs) {
     const double wacc_d = static_cast<double>(inputs.wacc.num)
                         / inputs.wacc.den;
 
-    // ── PV dos FCFFs explícitos (usando double para desconto) ──────────────
+    // ── PV of explicit FCFFs (using double for discounting) ───────────────
     double pv_sum = 0.0;
     for (int t = 0; t < n; ++t) {
         double discount = std::pow(1.0 + wacc_d, -(t + 1));
         pv_sum += detail::to_double(fcff[t]) * discount;
     }
 
-    // ── Valor Terminal: TV = FCFF_N × (1+g) / (WACC - g) ──────────────────
-    // Multiplicador como Rational exato: (g.den+g.num)×wacc.den / (wacc.num×g.den - g.num×wacc.den)
+    // ── Terminal Value: TV = FCFF_N × (1+g) / (WACC - g) ─────────────────
+    // Exact Rational multiplier: (g.den+g.num)×wacc.den / (wacc.num×g.den - g.num×wacc.den)
     const auto& g = inputs.terminal_growth;
     const auto& w = inputs.wacc;
 
@@ -76,11 +76,11 @@ compute_dcf(const DCFInputs& inputs) {
     auto ev_cur      = mk(ev_d);    if (!ev_cur)      return std::unexpected(ev_cur.error());
     auto pv_tv_cur   = mk(pv_tv_d); if (!pv_tv_cur)   return std::unexpected(pv_tv_cur.error());
 
-    // ── Equity Value = EV - dívida líquida ─────────────────────────────────
+    // ── Equity Value = EV - net debt ──────────────────────────────────────
     auto equity = ev_cur->subtract(inputs.net_debt);
     if (!equity) return std::unexpected(ValuationError::MoneyError);
 
-    // ── Valor por ação ──────────────────────────────────────────────────────
+    // ── Value per share ────────────────────────────────────────────────────
     auto per_share = equity->scale(
         ratmoney::Rational{1, inputs.shares_outstanding});
     if (!per_share) return std::unexpected(ValuationError::MoneyError);

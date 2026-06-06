@@ -22,7 +22,7 @@ inline const ratmoney::Rational& UNIT_RATE() {
     return r;
 }
 
-// ── Conversões Currency ───────────────────────────────────────────────────────
+// ── Currency conversions ──────────────────────────────────────────────────────
 
 // double (BRL billions) → Currency
 inline ratmoney::Currency b2c(double billions) {
@@ -46,7 +46,7 @@ inline double c2r(const ratmoney::Currency& c) {
     return ratvalue::detail::to_double(c);
 }
 
-// ── Conversões Rational ───────────────────────────────────────────────────────
+// ── Rational conversions ──────────────────────────────────────────────────────
 
 // double (e.g. 0.05 for 5%) → Rational
 inline ratmoney::Rational d2r(double v, int64_t den = 100'000) {

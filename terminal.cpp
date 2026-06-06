@@ -47,7 +47,7 @@ consistent_terminal_value(const ConsistentTVInputs& inputs) {
         if (lhs <= rhs) return std::unexpected(ValuationError::WACCLEGrowth);
     }
 
-    // g / ROIC  →  taxa de reinvestimento implícita
+    // g / ROIC  →  implied reinvestment rate
     auto g_over_roic = detail::make_rational(
         static_cast<__int128>(inputs.terminal_growth.num) * inputs.terminal_roic.den,
         static_cast<__int128>(inputs.terminal_growth.den) * inputs.terminal_roic.num);
@@ -62,7 +62,7 @@ consistent_terminal_value(const ConsistentTVInputs& inputs) {
     if (!wacc_minus_g || wacc_minus_g->num <= 0)
         return std::unexpected(ValuationError::WACCLEGrowth);
 
-    // multiplicador = (1 − g/ROIC) / (WACC − g)
+    // multiplier = (1 − g/ROIC) / (WACC − g)
     auto tv_mul = detail::make_rational(
         static_cast<__int128>(one_minus_rr->num) * wacc_minus_g->den,
         static_cast<__int128>(one_minus_rr->den) * wacc_minus_g->num);

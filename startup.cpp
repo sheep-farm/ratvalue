@@ -12,7 +12,7 @@ startup_valuation(const StartupValuationInputs& inputs) {
      || inputs.survival_probability.num > inputs.survival_probability.den)
         return std::unexpected(ValuationError::InvalidInput);
 
-    // Valida soma das probabilidades ≈ 1
+    // Validate probability sum ≈ 1
     double prob_sum = 0.0;
     for (const auto& s : inputs.scenarios) {
         if (s.wacc.num <= 0 || s.years_to_terminal <= 0
@@ -26,7 +26,7 @@ startup_valuation(const StartupValuationInputs& inputs) {
     if (std::abs(prob_sum - 1.0) > 1e-6)
         return std::unexpected(ValuationError::InvalidInput);
 
-    // Moeda de referência: primeiro FCFF terminal
+    // Reference currency: first terminal FCFF
     const auto& ref = inputs.scenarios.front().terminal_fcff;
     for (const auto& s : inputs.scenarios)
         if (!detail::same_currency(s.terminal_fcff, ref))
@@ -38,7 +38,7 @@ startup_valuation(const StartupValuationInputs& inputs) {
     const auto& desc = ref.description();
     const auto& rate = ref.rate();
 
-    // Valor de cada cenário descontado a hoje
+    // Value of each scenario discounted to today
     std::vector<std::pair<std::string, ratmoney::Currency>> scenario_evs;
     double ev_expected = 0.0;
 

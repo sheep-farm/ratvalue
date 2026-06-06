@@ -6,26 +6,26 @@
 
 namespace ratvalue {
 
-// Dados financeiros para cálculo do FCFF (Free Cash Flow to Firm)
+// Financial inputs for FCFF (Free Cash Flow to Firm) computation
 struct FCFFInputs {
-    ratmoney::Currency ebit;                         // LAJIR
-    ratmoney::Rational tax_rate;                     // alíquota de imposto (t)
-    ratmoney::Currency depreciation_amortization;    // depreciação + amortização (D&A)
-    ratmoney::Currency capex;                        // investimento em ativo fixo
-    ratmoney::Currency delta_nwc;                    // variação no capital de giro
+    ratmoney::Currency ebit;                         // EBIT
+    ratmoney::Rational tax_rate;                     // tax rate (t)
+    ratmoney::Currency depreciation_amortization;    // depreciation + amortization (D&A)
+    ratmoney::Currency capex;                        // capital expenditure
+    ratmoney::Currency delta_nwc;                    // change in net working capital
 };
 
-// FCFF = EBIT × (1 - t) + D&A - CapEx - ΔCGN
+// FCFF = EBIT × (1 - t) + D&A - CapEx - ΔNWC
 [[nodiscard]] std::expected<ratmoney::Currency, ValuationError>
 compute_fcff(const FCFFInputs& inputs);
 
-// Projeção multi-estágio de FCFF
+// Multi-stage FCFF projection
 struct FCFFProjection {
-    ratmoney::Currency           base_fcff;  // FCFF do período base (ano 0)
-    std::vector<ProjectionStage> stages;     // estágios de crescimento
+    ratmoney::Currency           base_fcff;  // base FCFF (year 0)
+    std::vector<ProjectionStage> stages;     // growth stages
 };
 
-// Projeta FCFF do ano 1 ao ano N (base não está incluído no resultado)
+// Projects FCFF from year 1 to N (base not included in result)
 [[nodiscard]] std::expected<std::vector<ratmoney::Currency>, ValuationError>
 project_fcff(const FCFFProjection& proj);
 

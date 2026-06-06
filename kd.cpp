@@ -5,9 +5,9 @@
 
 namespace ratvalue {
 
-// ── Tabelas ICR → rating (Damodaran, Jan 2023) ────────────────────────────────
-// Cada entrada define o ICR mínimo para obter o rating correspondente.
-// Ordenadas de melhor para pior (ICR decrescente).
+// ── ICR → rating tables (Damodaran, Jan 2023) ────────────────────────────────
+// Each entry defines the minimum ICR to obtain the corresponding rating.
+// Ordered from best to worst (descending ICR).
 
 struct RatingEntry {
     double       icr_min;
@@ -30,7 +30,7 @@ static constexpr std::array<RatingEntry, 15> LARGE_FIRM_TABLE = {{
     { 0.80, CreditRating::CCC,   600 },
     { 0.65, CreditRating::CC,    700 },
     { 0.20, CreditRating::C,     800 },
-    {-1e15, CreditRating::D,    1200 },   // catch-all (ICR negativo ou muito baixo)
+    {-1e15, CreditRating::D,    1200 },   // catch-all (negative or very low ICR)
 }};
 
 static constexpr std::array<RatingEntry, 15> SMALL_FIRM_TABLE = {{
@@ -51,7 +51,7 @@ static constexpr std::array<RatingEntry, 15> SMALL_FIRM_TABLE = {{
     {-1e15, CreditRating::D,    1200 },
 }};
 
-// Lookup: retorna o primeiro entry onde icr >= icr_min (tabela já ordenada de melhor para pior)
+// Lookup: returns the first entry where icr >= icr_min (table already ordered best to worst)
 static const RatingEntry& lookup_icr(double icr, bool large_firm) noexcept {
     const auto& table = large_firm ? LARGE_FIRM_TABLE : SMALL_FIRM_TABLE;
     for (const auto& entry : table)
@@ -59,7 +59,7 @@ static const RatingEntry& lookup_icr(double icr, bool large_firm) noexcept {
     return table.back();   // D rating
 }
 
-// ── API pública ───────────────────────────────────────────────────────────────
+// ── Public API ────────────────────────────────────────────────────────────────
 
 std::string_view rating_name(CreditRating r) noexcept {
     static constexpr std::array<std::string_view, 15> names = {
@@ -79,7 +79,7 @@ synthetic_cost_of_debt_from_icr(double icr,
                                   bool large_firm) {
     const auto& entry = lookup_icr(icr, large_firm);
 
-    // spread como Rational exato: spread_bps / 10000
+    // spread as exact Rational: spread_bps / 10000
     auto spread = detail::make_rational(
         static_cast<__int128>(entry.spread_bps), 10000);
     if (!spread) return std::unexpected(spread.error());
@@ -105,7 +105,7 @@ synthetic_cost_of_debt(const SyntheticKdInputs& inputs) {
     const int64_t interest_units = inputs.interest_expense.units();
 
     if (interest_units <= 0) {
-        // Sem despesa financeira (ou receita > despesa): sem risco de default
+        // No interest expense (or income > expense): no default risk
         icr = std::numeric_limits<double>::infinity();
     } else {
         icr = static_cast<double>(inputs.ebit.units())

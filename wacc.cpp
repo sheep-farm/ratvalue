@@ -22,11 +22,11 @@ compute_wacc(const WACCInputs& inputs) {
     auto dw_kd = detail::r_mul(inputs.debt_weight, inputs.cost_of_debt);
     if (!dw_kd) return std::unexpected(dw_kd.error());
 
-    // D_w × Kd × (1 - t)  →  termo da dívida com benefício fiscal
+    // D_w × Kd × (1 - t)  →  debt term with tax shield
     auto debt_term = detail::r_mul(*dw_kd, *one_minus_t);
     if (!debt_term) return std::unexpected(debt_term.error());
 
-    // E_w × Ke  →  termo do capital próprio
+    // E_w × Ke  →  equity term
     auto equity_term = detail::r_mul(inputs.equity_weight, inputs.cost_of_equity);
     if (!equity_term) return std::unexpected(equity_term.error());
 

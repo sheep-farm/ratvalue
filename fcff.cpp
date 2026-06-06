@@ -8,7 +8,7 @@ compute_fcff(const FCFFInputs& inputs) {
     if (inputs.tax_rate.num < 0 || inputs.tax_rate.num > inputs.tax_rate.den)
         return std::unexpected(ValuationError::InvalidInput);
 
-    // Todos os inputs monetários devem estar na mesma denominação
+    // All monetary inputs must share the same denomination
     if (!detail::same_currency(inputs.ebit, inputs.depreciation_amortization)
      || !detail::same_currency(inputs.ebit, inputs.capex)
      || !detail::same_currency(inputs.ebit, inputs.delta_nwc))
@@ -32,7 +32,7 @@ compute_fcff(const FCFFInputs& inputs) {
     auto r2 = r1->subtract(inputs.capex);
     if (!r2) return std::unexpected(ValuationError::MoneyError);
 
-    // - ΔCGN
+    // - ΔNWC
     auto r3 = r2->subtract(inputs.delta_nwc);
     if (!r3) return std::unexpected(ValuationError::MoneyError);
 
@@ -51,7 +51,7 @@ project_fcff(const FCFFProjection& proj) {
         if (stage.periods <= 0)
             return std::unexpected(ValuationError::InvalidInput);
 
-        // fator de crescimento (1 + g) como Rational exato
+        // growth factor (1 + g) as exact Rational
         auto factor = detail::one_plus(stage.growth_rate);
         if (!factor) return std::unexpected(factor.error());
 

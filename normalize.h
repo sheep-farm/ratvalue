@@ -6,30 +6,30 @@
 
 namespace ratvalue {
 
-// ── Normalização de Resultados (Damodaran, Ch. 8 e 18) ───────────────────────
+// ── Earnings Normalization (Damodaran, Ch. 8 and 18) ─────────────────────────
 //
-// Firmas cíclicas ou com itens não-recorrentes produzem EBIT volátil que
-// distorce o DCF.  Damodaran recomenda normalizar antes de valuar:
+// Cyclical firms or firms with non-recurring items produce volatile EBIT that
+// distorts the DCF.  Damodaran recommends normalizing before valuing:
 //
-//   Método 1 — Média Histórica: média aritmética do EBIT dos últimos N anos.
-//     Captura o "EBIT médio do ciclo".  Requer pelo menos 2 anos.
+//   Method 1 — Historical Average: arithmetic mean of EBIT over the last N years.
+//     Captures "cycle-average EBIT".  Requires at least 2 years.
 //
-//   Método 2 — Margem Normalizada: receita atual × margem "normal" do setor
-//     ou histórica.  Útil quando a receita é estável mas a margem oscila.
+//   Method 2 — Normalized Margin: current revenue × "normal" sector or historical margin.
+//     Useful when revenue is stable but margin oscillates.
 //
-// Ambos retornam um Currency que pode ser usado diretamente como EBIT_0 no
-// compute_fcff ou como NOPAT_0 no excess_returns_value.
+// Both return a Currency that can be used directly as EBIT_0 in
+// compute_fcff or as NOPAT_0 in excess_returns_value.
 
 enum class NormalizationMethod {
-    HistoricalAverage,  // média do EBIT histórico
-    NormalizedMargin,   // receita atual × margem normalizada
+    HistoricalAverage,  // historical EBIT average
+    NormalizedMargin,   // current revenue × normalized margin
 };
 
 struct NormalizationInputs {
     NormalizationMethod             method;
-    std::vector<ratmoney::Currency> historical_ebit;    // para HistoricalAverage (≥ 2)
-    ratmoney::Currency              current_revenue;     // para NormalizedMargin
-    ratmoney::Rational              normalized_margin;   // para NormalizedMargin
+    std::vector<ratmoney::Currency> historical_ebit;    // for HistoricalAverage (≥ 2)
+    ratmoney::Currency              current_revenue;     // for NormalizedMargin
+    ratmoney::Rational              normalized_margin;   // for NormalizedMargin
 };
 
 [[nodiscard]] std::expected<ratmoney::Currency, ValuationError>

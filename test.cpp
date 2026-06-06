@@ -32,7 +32,7 @@ Currency usd_cur(int64_t cents) { return Currency{cents, {1, 1}, usd}; }
 // ── CAPM ─────────────────────────────────────────────────────────────────────
 
 TEST(CAPM, SimpleCase) {
-    // Rf=5%, β=1,30, ERP=7% → Ke = 5% + 1,3×7% = 14,1% = 141/1000
+    // Rf=5%, β=1.30, ERP=7% → Ke = 5% + 1.3×7% = 14.1% = 141/1000
     auto result = cost_of_equity(CAPMInputs{
         .risk_free_rate      = {1, 20},
         .beta                = {13, 10},
@@ -65,9 +65,9 @@ TEST(CAPM, NegativeRiskFreeRateRejected) {
     EXPECT_EQ(result.error(), ValuationError::InvalidInput);
 }
 
-TEST(CAPM, ComCRPMercadoEmergente) {
-    // Rf=5%, β=1,30, ERP_maduro=7%, CRP=3%, λ=1
-    // Ke = 5% + 1,3×7% + 1×3% = 5% + 9,1% + 3% = 17,1%
+TEST(CAPM, WithCRPEmergingMarket) {
+    // Rf=5%, β=1.30, ERP_mature=7%, CRP=3%, λ=1
+    // Ke = 5% + 1.3×7% + 1×3% = 5% + 9.1% + 3% = 17.1%
     // = 1/20 + 91/1000 + 3/100 = 50/1000 + 91/1000 + 30/1000 = 171/1000
     auto result = cost_of_equity(CAPMInputs{
         .risk_free_rate       = {1, 20},
@@ -81,46 +81,46 @@ TEST(CAPM, ComCRPMercadoEmergente) {
     EXPECT_EQ(result->den, 1000);
 }
 
-TEST(CAPM, LambdaParcial) {
-    // λ=0,5: empresa com metade da receita no exterior
-    // Ke = 5% + 1,3×7% + 0,5×3% = 14,1% + 1,5% = 15,6% = 156/1000
+TEST(CAPM, PartialLambda) {
+    // λ=0.5: company with half its revenue abroad
+    // Ke = 5% + 1.3×7% + 0.5×3% = 14.1% + 1.5% = 15.6% = 156/1000
     auto result = cost_of_equity(CAPMInputs{
         .risk_free_rate       = {1, 20},
         .beta                 = {13, 10},
         .equity_risk_premium  = {7, 100},
         .country_risk_premium = {3, 100},
-        .lambda               = {1, 2},    // 0,5
+        .lambda               = {1, 2},    // 0.5
     });
     ASSERT_TRUE(result.has_value());
-    // 171/1000 - 3/200 = 342/2000 - 30/2000... espera: 14,1% + 1,5% = 15,6%
+    // 14.1% + 1.5% = 15.6%
     double ke = static_cast<double>(result->num) / result->den;
     EXPECT_NEAR(ke, 0.156, 1e-12);
 }
 
-TEST(CAPM, CRPZeroEquivalenteAoSimples) {
-    // CRP=0 deve produzir resultado idêntico ao CAPM simples
-    auto sem_crp = cost_of_equity(CAPMInputs{
+TEST(CAPM, CRPZeroEquivalentToSimple) {
+    // CRP=0 must produce a result identical to simple CAPM
+    auto without_crp = cost_of_equity(CAPMInputs{
         .risk_free_rate      = {1, 20},
         .beta                = {13, 10},
         .equity_risk_premium = {7, 100},
     });
-    auto com_crp_zero = cost_of_equity(CAPMInputs{
+    auto with_crp_zero = cost_of_equity(CAPMInputs{
         .risk_free_rate       = {1, 20},
         .beta                 = {13, 10},
         .equity_risk_premium  = {7, 100},
         .country_risk_premium = {0, 1},
         .lambda               = {1, 1},
     });
-    ASSERT_TRUE(sem_crp.has_value());
-    ASSERT_TRUE(com_crp_zero.has_value());
-    EXPECT_EQ(*sem_crp, *com_crp_zero);
+    ASSERT_TRUE(without_crp.has_value());
+    ASSERT_TRUE(with_crp_zero.has_value());
+    EXPECT_EQ(*without_crp, *with_crp_zero);
 }
 
 // ── WACC ─────────────────────────────────────────────────────────────────────
 
 TEST(WACC, FullComputation) {
-    // Ew=70%, Dw=30%, Ke=14,1%, Kd=12%, t=34%
-    // WACC = 0,7×0,141 + 0,3×0,12×0,66 = 0,0987 + 0,02376 = 0,12246 = 6123/50000
+    // Ew=70%, Dw=30%, Ke=14.1%, Kd=12%, t=34%
+    // WACC = 0.7×0.141 + 0.3×0.12×0.66 = 0.0987 + 0.02376 = 0.12246 = 6123/50000
     auto result = compute_wacc(WACCInputs{
         .equity_weight  = {7, 10},
         .debt_weight    = {3, 10},
@@ -133,7 +133,7 @@ TEST(WACC, FullComputation) {
     EXPECT_EQ(result->den, 50000);
 }
 
-TEST(WACC, SoCapitalProprio) {
+TEST(WACC, EquityOnly) {
     // Dw=0 → WACC = Ke
     auto result = compute_wacc(WACCInputs{
         .equity_weight  = {1, 1},
@@ -147,37 +147,37 @@ TEST(WACC, SoCapitalProprio) {
     EXPECT_EQ(result->den, 10);
 }
 
-TEST(WACC, AliquotaInvalidaRejeitada) {
+TEST(WACC, InvalidTaxRateRejected) {
     auto result = compute_wacc(WACCInputs{
         .equity_weight  = {1, 2},
         .debt_weight    = {1, 2},
         .cost_of_equity = {1, 10},
         .cost_of_debt   = {1, 10},
-        .tax_rate       = {-1, 100},  // negativa
+        .tax_rate       = {-1, 100},  // negative
     });
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ValuationError::InvalidInput);
 }
 
-// ── Validação de moeda ────────────────────────────────────────────────────────
+// ── Currency validation ────────────────────────────────────────────────────────
 
-TEST(CurrencyValidation, FCFFInputsDenominacoesDistintas) {
+TEST(CurrencyValidation, FCFFInputsDifferentDenominations) {
     ratmoney::CurrencyDescription brl{"BRL", "R$", 2};
     ratmoney::CurrencyDescription usd_d{"USD", "$", 2};
 
-    // EBIT em BRL, CapEx em USD — deve rejeitar
+    // EBIT in BRL, CapEx in USD — must reject
     auto result = compute_fcff(FCFFInputs{
         .ebit                      = Currency{10000, {1, 1}, brl},
         .tax_rate                  = {34, 100},
         .depreciation_amortization = Currency{1000,  {1, 1}, brl},
-        .capex                     = Currency{1500,  {1, 1}, usd_d},  // moeda errada
+        .capex                     = Currency{1500,  {1, 1}, usd_d},  // wrong currency
         .delta_nwc                 = Currency{500,   {1, 1}, brl},
     });
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ValuationError::CurrencyMismatch);
 }
 
-TEST(CurrencyValidation, DCFDividaLiquidaOutraMoeda) {
+TEST(CurrencyValidation, DCFNetDebtDifferentCurrency) {
     ratmoney::CurrencyDescription brl{"BRL", "R$", 2};
     ratmoney::CurrencyDescription usd_d{"USD", "$", 2};
 
@@ -187,12 +187,12 @@ TEST(CurrencyValidation, DCFDividaLiquidaOutraMoeda) {
     });
     ASSERT_TRUE(fcffs.has_value());
 
-    // net_debt em USD, FCFFs em BRL — deve rejeitar
+    // net_debt in USD, FCFFs in BRL — must reject
     auto result = compute_dcf(DCFInputs{
         .projected_fcff     = *fcffs,
         .wacc               = {1, 10},
         .terminal_growth    = {0, 1},
-        .net_debt           = Currency{20000, {1, 5}, usd_d},  // moeda diferente
+        .net_debt           = Currency{20000, {1, 5}, usd_d},  // different currency
         .shares_outstanding = 10,
     });
     EXPECT_FALSE(result.has_value());
@@ -201,10 +201,10 @@ TEST(CurrencyValidation, DCFDividaLiquidaOutraMoeda) {
 
 // ── FCFF ─────────────────────────────────────────────────────────────────────
 
-TEST(FCFF, FormulaBasica) {
-    // FCFF = EBIT(1-t) + D&A - CapEx - ΔCGN
-    //      = 100(0,66) + 10 - 15 - 5 = 66 + 10 - 15 - 5 = 56
-    // em cents: ebit=10000, t=34/100, da=1000, capex=1500, dnwc=500
+TEST(FCFF, BasicFormula) {
+    // FCFF = EBIT(1-t) + D&A - CapEx - ΔNWC
+    //      = 100(0.66) + 10 - 15 - 5 = 66 + 10 - 15 - 5 = 56
+    // in cents: ebit=10000, t=34/100, da=1000, capex=1500, dnwc=500
     // EBIT(1-t) = roundedDiv(10000×66, 100) = 6600
     // FCFF = 6600 + 1000 - 1500 - 500 = 5600 cents
     auto result = compute_fcff(FCFFInputs{
@@ -218,9 +218,9 @@ TEST(FCFF, FormulaBasica) {
     EXPECT_EQ(result->units(), 5600);  // $56.00
 }
 
-TEST(FCFF, ProjecaoMultiEstagio) {
+TEST(FCFF, MultiStageProjection) {
     // FCFF₀ = $100 = 10000 cents
-    // estágio 1: g=20%=1/5, 2 anos → FCFF₁=12000, FCFF₂=14400
+    // stage 1: g=20%=1/5, 2 years → FCFF₁=12000, FCFF₂=14400
     auto result = project_fcff(FCFFProjection{
         .base_fcff = usd_cur(10000),
         .stages    = {{Rational{1, 5}, 2}},
@@ -231,8 +231,8 @@ TEST(FCFF, ProjecaoMultiEstagio) {
     EXPECT_EQ((*result)[1].units(), 14400);   // $144
 }
 
-TEST(FCFF, ProjecaoDoisEstagios) {
-    // Estágio 1: g=20%, 2 anos; Estágio 2: g=0%, 1 ano
+TEST(FCFF, TwoStageProjection) {
+    // Stage 1: g=20%, 2 years; Stage 2: g=0%, 1 year
     // [12000, 14400, 14400]
     auto result = project_fcff(FCFFProjection{
         .base_fcff = usd_cur(10000),
@@ -247,12 +247,12 @@ TEST(FCFF, ProjecaoDoisEstagios) {
 
 // ── DCF ──────────────────────────────────────────────────────────────────────
 
-TEST(DCF, PerpetuagemSemCrescimento) {
-    // FCFF constante: $100/ano, WACC=10%, g=0%
-    // EV = FCFF/WACC = $100/0,10 = $1000, independente do horizon explícito.
-    // Com 2 anos explícitos + TV:
-    //   PV1 = 100/1,1; PV2 = 100/1,1²; TV = 100/0,1; PV(TV) = 1000/1,1²
-    //   EV = (100 + 100 + 1000) / 1,1² = 1200/1,21 + ... = $1000
+TEST(DCF, ZeroGrowthPerpetuity) {
+    // Constant FCFF: $100/yr, WACC=10%, g=0%
+    // EV = FCFF/WACC = $100/0.10 = $1000, regardless of the explicit horizon.
+    // With 2 explicit years + TV:
+    //   PV1 = 100/1.1; PV2 = 100/1.1²; TV = 100/0.1; PV(TV) = 1000/1.1²
+    //   EV = (100 + 100 + 1000) / 1.1² = 1200/1.21 + ... = $1000
     auto fcffs = project_fcff(FCFFProjection{
         .base_fcff = usd_cur(10000),  // $100
         .stages    = {{Rational{0, 1}, 2}},
@@ -267,13 +267,13 @@ TEST(DCF, PerpetuagemSemCrescimento) {
         .shares_outstanding = 1,
     });
     ASSERT_TRUE(result.has_value());
-    // EV ≈ $1000 = 100000 cents (tolerância de 1 centavo por arredondamento double)
+    // EV ≈ $1000 = 100000 cents (1-cent tolerance for double rounding)
     EXPECT_NEAR(result->enterprise_value.units(), 100000, 1);
 }
 
-TEST(DCF, EquityValueComDivida) {
-    // EV = $1000, dívida = $200 → equity = $800
-    // Com 10 ações: preço = $80
+TEST(DCF, EquityValueWithDebt) {
+    // EV = $1000, net debt = $200 → equity = $800
+    // With 10 shares: price = $80
     auto fcffs = project_fcff(FCFFProjection{
         .base_fcff = usd_cur(10000),
         .stages    = {{Rational{0, 1}, 1}},
@@ -292,7 +292,7 @@ TEST(DCF, EquityValueComDivida) {
     EXPECT_NEAR(result->equity_value_per_share.units(), 8000, 1); // $80
 }
 
-TEST(DCF, WACCMenorOuIgualGRejeitado) {
+TEST(DCF, WACCLEGrowthRejected) {
     auto fcffs = project_fcff(FCFFProjection{
         .base_fcff = usd_cur(10000),
         .stages    = {{Rational{0, 1}, 1}},
@@ -302,7 +302,7 @@ TEST(DCF, WACCMenorOuIgualGRejeitado) {
     auto result = compute_dcf(DCFInputs{
         .projected_fcff     = *fcffs,
         .wacc               = {5, 100},  // 5%
-        .terminal_growth    = {5, 100},  // 5% — igual!
+        .terminal_growth    = {5, 100},  // 5% — equal!
         .net_debt           = usd_cur(0),
         .shares_outstanding = 1,
     });
@@ -312,14 +312,14 @@ TEST(DCF, WACCMenorOuIgualGRejeitado) {
 
 // ── DDM ──────────────────────────────────────────────────────────────────────
 
-TEST(DDM, GordonGrowthModelUmPeriodo) {
-    // D₀ = $1,00 = 100 cents
+TEST(DDM, GordonGrowthModelOnePeriod) {
+    // D₀ = $1.00 = 100 cents
     // D₁ = 100 × 21/20 = 105 cents  (g=5%)
-    // TV₁ = 105 × (1,05/0,05) = 105 × 21 = 2205 cents
-    // PV = (105 + 2205) / 1,1 = 2310 / 1,1 = 2100 cents = $21,00
-    // Invariante: equivale à fórmula direta P = D₀(1+g)/(Ke-g) = 1×1,05/0,05 = $21,00
+    // TV₁ = 105 × (1.05/0.05) = 105 × 21 = 2205 cents
+    // PV = (105 + 2205) / 1.1 = 2310 / 1.1 = 2100 cents = $21.00
+    // Invariant: equivalent to direct formula P = D₀(1+g)/(Ke-g) = 1×1.05/0.05 = $21.00
     auto result = compute_ddm(DDMInputs{
-        .base_dividend_per_share = usd_cur(100),   // $1,00
+        .base_dividend_per_share = usd_cur(100),   // $1.00
         .stages                  = {{Rational{1, 20}, 1}},
         .cost_of_equity          = {1, 10},         // Ke = 10%
         .stable_growth           = {1, 20},          // g  = 5%
@@ -328,22 +328,22 @@ TEST(DDM, GordonGrowthModelUmPeriodo) {
     EXPECT_NEAR(result->intrinsic_value_per_share.units(), 2100, 1);
 }
 
-TEST(DDM, KeMenorOuIgualGRejeitado) {
+TEST(DDM, KeLEGrowthRejected) {
     auto result = compute_ddm(DDMInputs{
         .base_dividend_per_share = usd_cur(100),
         .stages                  = {{Rational{1, 10}, 1}},
         .cost_of_equity          = {5, 100},   // Ke = 5%
-        .stable_growth           = {5, 100},   // g  = 5% — igual!
+        .stable_growth           = {5, 100},   // g  = 5% — equal!
     });
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ValuationError::WACCLEGrowth);
 }
 
-TEST(DDM, ValorTerminalExato) {
-    // Com g=0% e Ke=10%, TV multiplier = 1/Ke = 10
-    // TV = D₁ × 10.  Com D₀=100, D₁=100 (g=0).
-    // TV = 1000 cents = $10.  PV(TV) = 1000/1,1 = 909...
-    // PV(D₁) = 100/1,1 = 90,9...
+TEST(DDM, ExactTerminalValue) {
+    // With g=0% and Ke=10%, TV multiplier = 1/Ke = 10
+    // TV = D₁ × 10.  With D₀=100, D₁=100 (g=0).
+    // TV = 1000 cents = $10.  PV(TV) = 1000/1.1 = 909...
+    // PV(D₁) = 100/1.1 = 90.9...
     // Total ≈ 1000 cents = $10  (P = D/Ke = 100/100 × 10% = $10)
     auto result = compute_ddm(DDMInputs{
         .base_dividend_per_share = usd_cur(100),
@@ -353,15 +353,15 @@ TEST(DDM, ValorTerminalExato) {
     });
     ASSERT_TRUE(result.has_value());
     EXPECT_NEAR(result->intrinsic_value_per_share.units(), 1000, 1);
-    EXPECT_EQ(result->terminal_value_per_share.units(), 1000);  // exato via Rational
+    EXPECT_EQ(result->terminal_value_per_share.units(), 1000);  // exact via Rational
 }
 
 // ── FCFE ─────────────────────────────────────────────────────────────────────
 
-TEST(FCFE, FormulaBasica) {
-    // NI=100, δ=30%, CapEx=20, D&A=10, ΔCGN=5, NND=5
-    // net_inv = 20-10+5 = 15 → equity_reinv = 15×0,7 = 10,5 → 1050 cents
-    // FCFE = 10000 - 1050 + 500 = 9450 cents = $94,50
+TEST(FCFE, BasicFormula) {
+    // NI=100, δ=30%, CapEx=20, D&A=10, ΔNWC=5, NND=5
+    // net_inv = 20-10+5 = 15 → equity_reinv = 15×0.7 = 10.5 → 1050 cents
+    // FCFE = 10000 - 1050 + 500 = 9450 cents = $94.50
     auto result = compute_fcfe(FCFEInputs{
         .net_income                = usd_cur(10000),
         .debt_ratio                = {3, 10},
@@ -374,8 +374,8 @@ TEST(FCFE, FormulaBasica) {
     EXPECT_EQ(result->units(), 9450);
 }
 
-TEST(FCFE, SemAlavancagem) {
-    // δ=0 (sem dívida): FCFE = NI - (CapEx - D&A + ΔCGN) + 0 = NI - reinvestimento
+TEST(FCFE, NoLeverage) {
+    // δ=0 (no debt): FCFE = NI - (CapEx - D&A + ΔNWC) + 0 = NI - reinvestment
     // = 10000 - (2000-1000+500) = 10000 - 1500 = 8500
     auto result = compute_fcfe(FCFEInputs{
         .net_income                = usd_cur(10000),
@@ -389,8 +389,8 @@ TEST(FCFE, SemAlavancagem) {
     EXPECT_EQ(result->units(), 8500);
 }
 
-TEST(FCFE, DCFPerpetuidade) {
-    // FCFE constante $100/ano, Ke=10%, g=0% → equity = FCFE/Ke = $1000
+TEST(FCFE, DCFPerpetuity) {
+    // Constant FCFE $100/yr, Ke=10%, g=0% → equity = FCFE/Ke = $1000
     auto fcfes = project_fcff(FCFFProjection{
         .base_fcff = usd_cur(10000),
         .stages    = {{Rational{0, 1}, 2}},
@@ -407,12 +407,12 @@ TEST(FCFE, DCFPerpetuidade) {
     EXPECT_NEAR(result->equity_value.units(), 100000, 1);
 }
 
-TEST(FCFE, MoedaErradaRejeitada) {
+TEST(FCFE, WrongCurrencyRejected) {
     ratmoney::CurrencyDescription brl{"BRL", "R$", 2};
     auto result = compute_fcfe(FCFEInputs{
         .net_income                = usd_cur(10000),
         .debt_ratio                = {3, 10},
-        .capex                     = Currency{2000, {1, 1}, brl},   // moeda errada
+        .capex                     = Currency{2000, {1, 1}, brl},   // wrong currency
         .depreciation_amortization = usd_cur(1000),
         .delta_nwc                 = usd_cur(500),
         .net_new_debt              = usd_cur(0),
@@ -421,10 +421,10 @@ TEST(FCFE, MoedaErradaRejeitada) {
     EXPECT_EQ(result.error(), ValuationError::CurrencyMismatch);
 }
 
-// ── Crescimento Fundamental ───────────────────────────────────────────────────
+// ── Fundamental Growth ───────────────────────────────────────────────────────
 
-TEST(Growth, ROICBasico) {
-    // NOPAT=$330, InvestedCapital=$2000 → ROIC = 330/2000 = 33/200 = 16,5%
+TEST(Growth, ROICBasic) {
+    // NOPAT=$330, InvestedCapital=$2000 → ROIC = 330/2000 = 33/200 = 16.5%
     auto result = compute_roic(ROICInputs{
         .nopat            = usd_cur(33000),
         .invested_capital = usd_cur(200000),
@@ -434,8 +434,8 @@ TEST(Growth, ROICBasico) {
     EXPECT_EQ(result->den, 200);
 }
 
-TEST(Growth, TaxaReinvestimento) {
-    // RR = (CapEx - D&A + ΔCGN) / NOPAT = (20-10+5)/66 = 15/66 = 5/22
+TEST(Growth, ReinvestmentRate) {
+    // RR = (CapEx - D&A + ΔNWC) / NOPAT = (20-10+5)/66 = 15/66 = 5/22
     auto result = compute_reinvestment_rate(ReinvestmentRateInputs{
         .capex                     = usd_cur(2000),
         .depreciation_amortization = usd_cur(1000),
@@ -447,7 +447,7 @@ TEST(Growth, TaxaReinvestimento) {
     EXPECT_EQ(result->den, 22);
 }
 
-TEST(Growth, CrescimentoFundamentalFirma) {
+TEST(Growth, FundamentalFirmGrowth) {
     // ROIC=15%, RR=60% → g = 9% = {9,100}
     auto result = fundamental_growth_firm({15, 100}, {3, 5});
     ASSERT_TRUE(result.has_value());
@@ -455,7 +455,7 @@ TEST(Growth, CrescimentoFundamentalFirma) {
     EXPECT_NEAR(g, 0.09, 1e-12);
 }
 
-TEST(Growth, CrescimentoFundamentalEquity) {
+TEST(Growth, FundamentalEquityGrowth) {
     // ROE=20%, retention=70% → g = 14% = {7,50}
     auto result = fundamental_growth_equity({1, 5}, {7, 10});
     ASSERT_TRUE(result.has_value());
@@ -474,10 +474,10 @@ TEST(Growth, ROE) {
     EXPECT_EQ(result->den, 5);
 }
 
-// ── Beta e Hamada ─────────────────────────────────────────────────────────────
+// ── Beta and Hamada ───────────────────────────────────────────────────────────
 
 TEST(Beta, LeverBeta) {
-    // β_u=1,0, D/E=1,0, t=40% → β_l = 1,0 × (1 + 0,6×1,0) = 1,6 = {8,5}
+    // β_u=1.0, D/E=1.0, t=40% → β_l = 1.0 × (1 + 0.6×1.0) = 1.6 = {8,5}
     auto result = lever_beta({1, 1}, {1, 1}, {2, 5});
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->num, 8);
@@ -485,16 +485,16 @@ TEST(Beta, LeverBeta) {
 }
 
 TEST(Beta, UnleverBeta) {
-    // β_l=1,6, D/E=1,0, t=40% → β_u = 1,6 / 1,6 = 1,0
+    // β_l=1.6, D/E=1.0, t=40% → β_u = 1.6 / 1.6 = 1.0
     auto result = unlever_beta({8, 5}, {1, 1}, {2, 5});
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->num, 1);
     EXPECT_EQ(result->den, 1);
 }
 
-TEST(Beta, LeverUnleverInverso) {
-    // lever(unlever(β)) deve devolver β original
-    Rational bl_orig{13, 10};  // 1,30
+TEST(Beta, LeverUnleverInverse) {
+    // lever(unlever(β)) must return the original β
+    Rational bl_orig{13, 10};  // 1.30
     Rational de{1, 2};          // D/E = 50%
     Rational t{34, 100};
 
@@ -509,10 +509,10 @@ TEST(Beta, LeverUnleverInverso) {
 }
 
 TEST(Beta, BottomUpBeta) {
-    // 2 comparáveis: β_l={6,5}, D/E={1,1}, t=40%  → β_u = 6/5 / 1,6 = 0,75
-    //                β_l={8,5}, D/E={1,1}, t=40%  → β_u = 8/5 / 1,6 = 1,00
-    // Média β_u = 0,875
-    // Alvo: D/E={1,2}=50%, t=34% → β_l = 0,875 × (1 + 0,66×0,5) = 0,875×1,33 = 1,16375
+    // 2 comparables: β_l={6,5}, D/E={1,1}, t=40%  → β_u = 6/5 / 1.6 = 0.75
+    //                β_l={8,5}, D/E={1,1}, t=40%  → β_u = 8/5 / 1.6 = 1.00
+    // Average β_u = 0.875
+    // Target: D/E={1,2}=50%, t=34% → β_l = 0.875 × (1 + 0.66×0.5) = 0.875×1.33 = 1.16375
     auto result = bottom_up_beta(BottomUpBetaInputs{
         .comparable_levered_betas  = {{6, 5}, {8, 5}},
         .comparable_debt_to_equity = {{1, 1}, {1, 1}},
@@ -527,7 +527,7 @@ TEST(Beta, BottomUpBeta) {
 
 // ── H-Model ───────────────────────────────────────────────────────────────────
 
-TEST(HModel, FormulaFechadaExata) {
+TEST(HModel, ExactClosedFormula) {
     // D₀=100 cents, g_h=20%, g_l=5%, H=5, Ke=10%
     // P = D₀ × [(1+g_l) + H×(g_h-g_l)] / (Ke-g_l)
     //   = 100 × [(21/20) + 5×(15/100)] / (5/100)
@@ -535,7 +535,7 @@ TEST(HModel, FormulaFechadaExata) {
     //   = 100 × [(42/40 + 30/40)] / (1/20)
     //   = 100 × (72/40) / (1/20)
     //   = 100 × (72/40) × 20
-    //   = 100 × 36 = 3600 cents = $36,00
+    //   = 100 × 36 = 3600 cents = $36.00
     auto result = compute_h_model(HModelInputs{
         .base_dividend  = usd_cur(100),
         .high_growth    = {1, 5},   // 20%
@@ -545,14 +545,14 @@ TEST(HModel, FormulaFechadaExata) {
     });
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->intrinsic_value.units(), 3600);
-    // multiplicador exato = 36
+    // exact multiplier = 36
     EXPECT_EQ(result->tv_multiplier.num, 36);
     EXPECT_EQ(result->tv_multiplier.den, 1);
 }
 
-TEST(HModel, SemTransicao_EquivaleGordon) {
-    // H=0: P = D₀ × (1+g_l)/(Ke-g_l) = Gordon Growth clássico
-    // D₀=100, g_l=5%, Ke=10% → P = 100 × 1,05/0,05 = 2100 cents
+TEST(HModel, NoTransition_EquivalentToGordon) {
+    // H=0: P = D₀ × (1+g_l)/(Ke-g_l) = classic Gordon Growth
+    // D₀=100, g_l=5%, Ke=10% → P = 100 × 1.05/0.05 = 2100 cents
     auto result = compute_h_model(HModelInputs{
         .base_dividend  = usd_cur(100),
         .high_growth    = {1, 5},
@@ -560,32 +560,32 @@ TEST(HModel, SemTransicao_EquivaleGordon) {
         .half_life      = {0, 1},   // H=0
         .cost_of_equity = {1, 10},
     });
-    // H=0 é inválido (half_life.num <= 0)
+    // H=0 is invalid (half_life.num <= 0)
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ValuationError::InvalidInput);
 }
 
-TEST(HModel, KeIgualGlRejeitado) {
+TEST(HModel, KeEqualsGStableRejected) {
     auto result = compute_h_model(HModelInputs{
         .base_dividend  = usd_cur(100),
         .high_growth    = {1, 5},
         .stable_growth  = {1, 10},
         .half_life      = {5, 1},
-        .cost_of_equity = {1, 10},  // Ke = g_l — denominador zero
+        .cost_of_equity = {1, 10},  // Ke = g_l — zero denominator
     });
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ValuationError::WACCLEGrowth);
 }
 
-// ── Terminal Value Estendido (Fase 5) ─────────────────────────────────────────
+// ── Extended Terminal Value ────────────────────────────────────────────────────
 
-TEST(Terminal, ConsistentTVComROIC) {
+TEST(Terminal, ConsistentTVWithROIC) {
     // NOPAT=10000 cents, WACC=10%, g=3%, ROIC=15%
     // RR = 3%/15% = 1/5 = 20%
     // TV = 10000 × (1 - 1/5) / (1/10 - 3/100)
     //    = 10000 × (4/5) / (7/100)
     //    = 10000 × 80/7
-    //    = 800000/7 → 114286 (arredondamento banker's)
+    //    = 800000/7 → 114286 (banker's rounding)
     auto result = consistent_terminal_value(ConsistentTVInputs{
         .stable_nopat    = usd_cur(10000),
         .wacc            = {1, 10},
@@ -596,9 +596,9 @@ TEST(Terminal, ConsistentTVComROIC) {
     EXPECT_EQ(result->units(), 114286);
 }
 
-TEST(Terminal, TVConsistenteMaiorQueGordonQuandoROICAlto) {
-    // Quando ROIC muito alto (>WACC), RR baixo → FCFF estável > NOPAT × (1-RR_alto)
-    // TV_consistente deve ser maior do que Gordon simples com mesmo NOPAT
+TEST(Terminal, ConsistentTVGreaterThanGordonWhenHighROIC) {
+    // When ROIC is very high (>WACC), RR is low → stable FCFF > NOPAT × (1-high_RR)
+    // Consistent TV should be greater than simple Gordon with same NOPAT
     // NOPAT=10000, WACC=10%, g=3%, ROIC=50%
     // RR = 3%/50% = 6% → FCFF = 10000 × 94% = 9400
     // TV = 9400 / 7% = 134285 cents
@@ -614,22 +614,22 @@ TEST(Terminal, TVConsistenteMaiorQueGordonQuandoROICAlto) {
     EXPECT_EQ(result->units(), 134286);
 }
 
-TEST(Terminal, TVPorMultiplo) {
-    // EBITDA=10000 cents, múltiplo=8 → TV=80000
+TEST(Terminal, TVByMultiple) {
+    // EBITDA=10000 cents, multiple=8 → TV=80000
     auto result = terminal_value_by_multiple(usd_cur(10000), {8, 1});
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->units(), 80000);
 }
 
-TEST(Terminal, TVPorMultiploFracionario) {
-    // múltiplo=7,5 = {15,2} → TV = 10000 × 15/2 = 75000
+TEST(Terminal, TVByFractionalMultiple) {
+    // multiple=7.5 = {15,2} → TV = 10000 × 15/2 = 75000
     auto result = terminal_value_by_multiple(usd_cur(10000), {15, 2});
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->units(), 75000);
 }
 
 TEST(Terminal, CheckConsistencyValueCreating) {
-    // ROIC=15% > WACC=10% → cria valor; RR=3/15=1/5 ∈ [0,1] → viável
+    // ROIC=15% > WACC=10% → value creating; RR=3/15=1/5 ∈ [0,1] → feasible
     auto c = check_terminal_consistency({1, 10}, {3, 100}, {3, 20});
     EXPECT_TRUE(c.value_creating);
     EXPECT_TRUE(c.reinvestment_feasible);
@@ -640,7 +640,7 @@ TEST(Terminal, CheckConsistencyValueCreating) {
 }
 
 TEST(Terminal, CheckConsistencyDestroyingValue) {
-    // ROIC=5% < WACC=10% → destrói valor; spread negativo
+    // ROIC=5% < WACC=10% → value destroying; negative spread
     auto c = check_terminal_consistency({1, 10}, {1, 100}, {1, 20});
     EXPECT_FALSE(c.value_creating);
     // spread = 5% - 10% = -5% = -1/20
@@ -648,15 +648,15 @@ TEST(Terminal, CheckConsistencyDestroyingValue) {
 }
 
 TEST(Terminal, CheckConsistencyInfeasibleReinvestment) {
-    // g=20% > ROIC=15% → RR = 20/15 = 4/3 > 1 → inviável (reinveste mais que ganha)
+    // g=20% > ROIC=15% → RR = 20/15 = 4/3 > 1 → infeasible (reinvests more than it earns)
     auto c = check_terminal_consistency({1, 4}, {1, 5}, {3, 20});
     EXPECT_FALSE(c.reinvestment_feasible);
 }
 
-// ── APV (Fase 6) ──────────────────────────────────────────────────────────────
+// ── APV ───────────────────────────────────────────────────────────────────────
 
-TEST(APV, TaxShieldExato) {
-    // PV(TS) = t × D = 34% × $500 = $170 = 17000 cents  (exato, sem double)
+TEST(APV, ExactTaxShield) {
+    // PV(TS) = t × D = 34% × $500 = $170 = 17000 cents  (exact, no double)
     auto fcffs = project_fcff(FCFFProjection{
         .base_fcff = usd_cur(10000),
         .stages    = {{Rational{0, 1}, 1}},
@@ -673,12 +673,12 @@ TEST(APV, TaxShieldExato) {
         .shares_outstanding         = 1,
     });
     ASSERT_TRUE(result.has_value());
-    // PV(TS) = 50000 × 17/50 = 17000 cents — exato
+    // PV(TS) = 50000 × 17/50 = 17000 cents — exact
     EXPECT_EQ(result->pv_tax_shield.units(), 17000);
 }
 
-TEST(APV, ValorDesalavancdoAproximado) {
-    // FCFF constante $100/ano, Ku=15%, g=0% → unlevered ≈ 100/0,15 = $666,67
+TEST(APV, ApproxUnleveredValue) {
+    // Constant FCFF $100/yr, Ku=15%, g=0% → unlevered ≈ 100/0.15 = $666.67
     auto fcffs = project_fcff(FCFFProjection{
         .base_fcff = usd_cur(10000),
         .stages    = {{Rational{0, 1}, 1}},
@@ -695,15 +695,15 @@ TEST(APV, ValorDesalavancdoAproximado) {
         .shares_outstanding         = 1,
     });
     ASSERT_TRUE(result.has_value());
-    // $666,67 = 66667 cents (tolerância double)
+    // $666.67 = 66667 cents (double tolerance)
     EXPECT_NEAR(result->unlevered_firm_value.units(), 66667, 1);
     EXPECT_EQ(result->pv_tax_shield.units(), 0);
     EXPECT_NEAR(result->apv.units(), 66667, 1);
 }
 
-TEST(APV, APVMaiorQueWACC) {
-    // APV e WACC convergem para o mesmo equity quando a estrutura de capital é estável,
-    // mas aqui apenas verificamos que APV > unlevered (o TS agrega valor)
+TEST(APV, APVGreaterThanUnlevered) {
+    // APV and WACC converge to the same equity when capital structure is stable,
+    // but here we only verify that APV > unlevered (TS adds value)
     auto fcffs = project_fcff(FCFFProjection{
         .base_fcff = usd_cur(10000),
         .stages    = {{Rational{0, 1}, 2}},
@@ -725,7 +725,7 @@ TEST(APV, APVMaiorQueWACC) {
     EXPECT_GT(result->apv.units(), result->unlevered_firm_value.units());
 }
 
-TEST(APV, MoedaInconsistenteRejeitada) {
+TEST(APV, InconsistentCurrencyRejected) {
     ratmoney::CurrencyDescription brl{"BRL", "R$", 2};
     auto fcffs = project_fcff(FCFFProjection{
         .base_fcff = usd_cur(10000),
@@ -737,7 +737,7 @@ TEST(APV, MoedaInconsistenteRejeitada) {
         .projected_fcff             = *fcffs,
         .terminal_growth            = {0, 1},
         .unlevered_cost_of_equity   = {3, 20},
-        .debt_market_value          = Currency{10000, {1, 1}, brl},  // moeda errada
+        .debt_market_value          = Currency{10000, {1, 1}, brl},  // wrong currency
         .tax_rate                   = {17, 50},
         .net_debt                   = usd_cur(10000),
         .shares_outstanding         = 1,
@@ -746,13 +746,13 @@ TEST(APV, MoedaInconsistenteRejeitada) {
     EXPECT_EQ(result.error(), ValuationError::CurrencyMismatch);
 }
 
-// ── Valuation Relativo (Fase 7) ───────────────────────────────────────────────
+// ── Relative Valuation ────────────────────────────────────────────────────────
 
-TEST(Relative, PEJustificado) {
+TEST(Relative, JustifiedPE) {
     // ROE=20%, payout=60%, Ke=12%
     // g = 20% × 40% = 8% = 2/25
     // Ke-g = 12%-8% = 4% = 1/25
-    // P/E = 0,60/0,04 = 15
+    // P/E = 0.60/0.04 = 15
     auto result = compute_justified_multiples(JustifiedMultiplesInputs{
         .cost_of_equity = {3, 25},   // 12%
         .wacc           = {1, 10},   // 10%
@@ -766,7 +766,7 @@ TEST(Relative, PEJustificado) {
     EXPECT_EQ(result->pe_ratio.den, 1);
 }
 
-TEST(Relative, PBJustificado) {
+TEST(Relative, JustifiedPB) {
     // P/BV = ROE × P/E = 20% × 15 = 3
     auto result = compute_justified_multiples(JustifiedMultiplesInputs{
         .cost_of_equity = {3, 25},
@@ -781,11 +781,11 @@ TEST(Relative, PBJustificado) {
     EXPECT_EQ(result->pb_ratio.den, 1);
 }
 
-TEST(Relative, EVEBITDAJustificado) {
+TEST(Relative, JustifiedEVEBITDA) {
     // RR = g/ROIC = 8%/20% = 40% = 2/5
     // (1-t) = 33/50,  (1-RR) = 3/5
     // WACC-g = 10%-8% = 2% = 1/50
-    // EV/EBITDA = (33/50)×(3/5) / (1/50) = (99/250)×50 = 99/5 = 19,8
+    // EV/EBITDA = (33/50)×(3/5) / (1/50) = (99/250)×50 = 99/5 = 19.8
     auto result = compute_justified_multiples(JustifiedMultiplesInputs{
         .cost_of_equity = {3, 25},
         .wacc           = {1, 10},
@@ -801,7 +801,7 @@ TEST(Relative, EVEBITDAJustificado) {
     EXPECT_NEAR(ev_ebitda, 19.8, 1e-12);
 }
 
-TEST(Relative, GrowthImplicito) {
+TEST(Relative, ImpliedGrowth) {
     // g_equity = ROE × retention = 20% × 40% = 8% = 2/25
     auto result = compute_justified_multiples(JustifiedMultiplesInputs{
         .cost_of_equity = {3, 25},
@@ -816,8 +816,8 @@ TEST(Relative, GrowthImplicito) {
     EXPECT_EQ(result->g_equity.den, 25);
 }
 
-TEST(Relative, KeMenorQueGRejeitado) {
-    // g = ROE × retention = 15% × 70% = 10,5% > Ke=10% → inválido
+TEST(Relative, KeLessThanGRejected) {
+    // g = ROE × retention = 15% × 70% = 10.5% > Ke=10% → invalid
     auto result = compute_justified_multiples(JustifiedMultiplesInputs{
         .cost_of_equity = {1, 10},   // 10%
         .wacc           = {1, 10},
@@ -830,8 +830,8 @@ TEST(Relative, KeMenorQueGRejeitado) {
     EXPECT_EQ(result.error(), ValuationError::WACCLEGrowth);
 }
 
-TEST(Relative, PayoutTotalPEEqualsGordon) {
-    // payout=100%: g=0, P/E = 1/Ke (perpetuidade sem crescimento)
+TEST(Relative, FullPayoutPEEqualsGordon) {
+    // payout=100%: g=0, P/E = 1/Ke (zero-growth perpetuity)
     // Ke=10% → P/E = 10
     auto result = compute_justified_multiples(JustifiedMultiplesInputs{
         .cost_of_equity = {1, 10},
@@ -847,9 +847,9 @@ TEST(Relative, PayoutTotalPEEqualsGordon) {
     EXPECT_EQ(result->g_equity.num, 0);
 }
 
-// ── Kd Sintético (Fase 3) ─────────────────────────────────────────────────────
+// ── Synthetic Kd ─────────────────────────────────────────────────────────────
 
-TEST(SyntheticKd, ICRAltoRetornaAAA) {
+TEST(SyntheticKd, HighICRReturnsAAA) {
     // ICR=10 → AAA → spread=63bps
     // Rf=5%={1,20}, spread={63,10000}
     // Kd = 1/20 + 63/10000 = 500/10000 + 63/10000 = 563/10000
@@ -868,8 +868,8 @@ TEST(SyntheticKd, ICRAltoRetornaAAA) {
     EXPECT_EQ(result->default_spread.den, 10000);
 }
 
-TEST(SyntheticKd, ICRMedioRetornaBBB) {
-    // ICR=2.75 → BBB (tabela large: [2.50, 3.00)) → spread=156bps
+TEST(SyntheticKd, MidICRReturnsBBB) {
+    // ICR=2.75 → BBB (large table: [2.50, 3.00)) → spread=156bps
     // Rf=5%, Kd=5%+1.56%=6.56%
     // 5% = {1,20} = 2500/50000; spread=156/10000=780/50000
     // Kd = (2500+780)/50000 = 3280/50000 = 41/625
@@ -886,7 +886,7 @@ TEST(SyntheticKd, ICRMedioRetornaBBB) {
     EXPECT_EQ(result->cost_of_debt.den, 625);
 }
 
-TEST(SyntheticKd, ICRBaixoRetornaD) {
+TEST(SyntheticKd, LowICRReturnsD) {
     // ICR=0.10 → D → spread=1200bps=12%
     // Kd = 5% + 12% = 17% = {17,100}
     auto result = synthetic_cost_of_debt(SyntheticKdInputs{
@@ -900,7 +900,7 @@ TEST(SyntheticKd, ICRBaixoRetornaD) {
     EXPECT_NEAR(kd, 0.17, 1e-9);
 }
 
-TEST(SyntheticKd, SemDividaRetornaAAA) {
+TEST(SyntheticKd, NoDebtReturnsAAA) {
     // interest_expense=0 → ICR=∞ → AAA, Kd=Rf
     auto result = synthetic_cost_of_debt(SyntheticKdInputs{
         .ebit             = usd_cur(10000),
@@ -913,8 +913,8 @@ TEST(SyntheticKd, SemDividaRetornaAAA) {
     EXPECT_EQ(result->cost_of_debt.den, 10000);
 }
 
-TEST(SyntheticKd, TabelaPequenaEmpresaMaisExigente) {
-    // ICR=5.0 → large=A (tabela large: [4.25,5.50)) mas small=A- (tabela small: [4.50,6.00))
+TEST(SyntheticKd, SmallFirmTableMoreStringent) {
+    // ICR=5.0 → large=A (large table: [4.25,5.50)) but small=A- (small table: [4.50,6.00))
     auto large = synthetic_cost_of_debt(SyntheticKdInputs{
         .ebit = usd_cur(50000), .interest_expense = usd_cur(10000),
         .risk_free_rate = {1, 20}, .large_firm = true});
@@ -926,13 +926,13 @@ TEST(SyntheticKd, TabelaPequenaEmpresaMaisExigente) {
     // ICR=5.0: large → A (spread=108bps), small → A- (spread=122bps)
     EXPECT_EQ(large->rating, CreditRating::A);
     EXPECT_EQ(small->rating, CreditRating::A_minus);
-    // Small firm → Kd maior (spread maior)
+    // Small firm → higher Kd (larger spread)
     double kd_large = static_cast<double>(large->cost_of_debt.num) / large->cost_of_debt.den;
     double kd_small = static_cast<double>(small->cost_of_debt.num) / small->cost_of_debt.den;
     EXPECT_LT(kd_large, kd_small);
 }
 
-TEST(SyntheticKd, MoedaInconsistenteRejeitada) {
+TEST(SyntheticKd, InconsistentCurrencyRejected) {
     ratmoney::CurrencyDescription brl{"BRL", "R$", 2};
     auto result = synthetic_cost_of_debt(SyntheticKdInputs{
         .ebit             = usd_cur(10000),
@@ -943,12 +943,12 @@ TEST(SyntheticKd, MoedaInconsistenteRejeitada) {
     EXPECT_EQ(result.error(), ValuationError::CurrencyMismatch);
 }
 
-// ── Estrutura de Capital Ótima (Fase 3) ───────────────────────────────────────
+// ── Optimal Capital Structure ─────────────────────────────────────────────────
 
-TEST(OptimalCapital, SemDividaWACCEqualsKe) {
+TEST(OptimalCapital, NoDebtWACCEqualsKe) {
     // d=0: β_l = β_u, WACC = Ke = Rf + β×ERP
     // β_u=1, Rf=5%, ERP=7%, t=34% → Ke=12%={3,25}
-    // schedule[0].wacc deve ser {3,25}
+    // schedule[0].wacc must be {3,25}
     ratmoney::CurrencyDescription usd_d{"USD", "$", 2};
     auto result = optimal_capital_structure(OptimalCapitalStructureInputs{
         .unlevered_beta       = {1, 1},
@@ -965,13 +965,13 @@ TEST(OptimalCapital, SemDividaWACCEqualsKe) {
     // d=0: WACC = Ke = 5% + 1×7% = 12% = {3,25}
     EXPECT_EQ(result->schedule[0].wacc.num, 3);
     EXPECT_EQ(result->schedule[0].wacc.den, 25);
-    // d=0: sem dívida, rating AAA, ICR=∞
+    // d=0: no debt, rating AAA, ICR=∞
     EXPECT_EQ(result->schedule[0].rating, CreditRating::AAA);
 }
 
-TEST(OptimalCapital, OtimoCriaValorViaShieldFiscal) {
-    // Para qualquer empresa com EBIT razoável, algum grau de alavancagem
-    // gera benefício fiscal que reduz WACC abaixo do nível sem dívida.
+TEST(OptimalCapital, OptimalCreatesValueViaTaxShield) {
+    // For any firm with reasonable EBIT, some degree of leverage
+    // generates a tax shield that reduces WACC below the unlevered level.
     auto result = optimal_capital_structure(OptimalCapitalStructureInputs{
         .unlevered_beta       = {1, 1},
         .risk_free_rate       = {1, 20},
@@ -987,13 +987,13 @@ TEST(OptimalCapital, OtimoCriaValorViaShieldFiscal) {
                           / result->schedule[0].wacc.den;
     double wacc_optimal   = static_cast<double>(result->optimal.wacc.num)
                           / result->optimal.wacc.den;
-    // Ótimo deve ser melhor (menor WACC) do que sem dívida
+    // Optimal must be better (lower WACC) than unlevered
     EXPECT_LT(wacc_optimal, wacc_unlevered);
-    // E a dívida ótima deve ser > 0
+    // And optimal debt must be > 0
     EXPECT_GT(result->optimal.debt_ratio.num, 0);
 }
 
-TEST(OptimalCapital, ScheduleOrdenadoPorRazaoDeEndividamento) {
+TEST(OptimalCapital, ScheduleOrderedByDebtRatio) {
     auto result = optimal_capital_structure(OptimalCapitalStructureInputs{
         .unlevered_beta       = {1, 1},
         .risk_free_rate       = {1, 20},
@@ -1013,19 +1013,19 @@ TEST(OptimalCapital, ScheduleOrdenadoPorRazaoDeEndividamento) {
     }
 }
 
-TEST(OptimalCapital, KdCresceComAlavancagem) {
-    // Quanto mais dívida, pior o rating (menor ICR), maior o Kd
+TEST(OptimalCapital, KdIncreasesWithLeverage) {
+    // Higher debt → worse rating (lower ICR) → higher Kd
     auto result = optimal_capital_structure(OptimalCapitalStructureInputs{
         .unlevered_beta       = {1, 1},
         .risk_free_rate       = {1, 20},
         .equity_risk_premium  = {7, 100},
         .tax_rate             = {17, 50},
-        .ebit                 = usd_cur(1000000),    // EBIT modesto → ICR piora rapidamente
+        .ebit                 = usd_cur(1000000),    // modest EBIT → ICR degrades quickly
         .firm_value           = usd_cur(200000000),
         .steps                = 5,
     });
     ASSERT_TRUE(result.has_value());
-    // Kd no último ponto (80% dívida) deve ser >= Kd no primeiro (0%)
+    // Kd at the last point (80% debt) must be >= Kd at the first (0%)
     double kd_first = static_cast<double>(result->schedule.front().cost_of_debt.num)
                     / result->schedule.front().cost_of_debt.den;
     double kd_last  = static_cast<double>(result->schedule.back().cost_of_debt.num)
@@ -1035,10 +1035,10 @@ TEST(OptimalCapital, KdCresceComAlavancagem) {
 
 // ── Excess Returns / EVA ──────────────────────────────────────────────────────
 
-TEST(ExcessReturns, SingleStageValorExato) {
+TEST(ExcessReturns, SingleStageExactValue) {
     // IC=10000, ROIC=15%={3,20}, WACC=10%={1,10}, g=3%={3,100}
     // V = IC × (ROIC−g)/(WACC−g) = 10000 × (12/100)/(7/100) = 10000 × 12/7
-    // = 120000/7 → 17143 (arredondamento banker's: 0.571 > 0.5 → sobe)
+    // = 120000/7 → 17143 (banker's rounding: 0.571 > 0.5 → rounds up)
     auto result = excess_returns_value(SingleStageERInputs{
         .invested_capital = usd_cur(10000),
         .roic             = {3, 20},
@@ -1054,7 +1054,7 @@ TEST(ExcessReturns, SingleStageValorExato) {
 }
 
 TEST(ExcessReturns, ROICEqualsWACCZeroExcessReturns) {
-    // ROIC = WACC = 10%: sem retorno em excesso → V = IC
+    // ROIC = WACC = 10%: no excess returns → V = IC
     auto result = excess_returns_value(SingleStageERInputs{
         .invested_capital = usd_cur(10000),
         .roic             = {1, 10},
@@ -1066,7 +1066,7 @@ TEST(ExcessReturns, ROICEqualsWACCZeroExcessReturns) {
     EXPECT_EQ(result->firm_value.units(), result->asset_value.units());
 }
 
-TEST(ExcessReturns, ROICAbaixoWACCDestroeValor) {
+TEST(ExcessReturns, ROICBelowWACCDestroysValue) {
     // ROIC < WACC: V < IC (firm_value < invested_capital)
     auto result = excess_returns_value(SingleStageERInputs{
         .invested_capital = usd_cur(10000),
@@ -1079,8 +1079,8 @@ TEST(ExcessReturns, ROICAbaixoWACCDestroeValor) {
     EXPECT_LT(result->pv_excess_returns.units(), 0);
 }
 
-TEST(ExcessReturns, MultiStageEquivalenteAoSingleQuandoUmEstagio) {
-    // Monoestágio: um período de crescimento zero → V deve ≈ single-stage
+TEST(ExcessReturns, MultiStageEquivalentToSingleWithOneStage) {
+    // Single stage: one period of zero growth → V must ≈ single-stage
     auto multi = excess_returns_multistage(MultiStageERInputs{
         .base_invested_capital = usd_cur(10000),
         .roic                  = {3, 20},
@@ -1090,18 +1090,18 @@ TEST(ExcessReturns, MultiStageEquivalenteAoSingleQuandoUmEstagio) {
         .terminal_growth       = {3, 100},
     });
     ASSERT_TRUE(multi.has_value());
-    // Valor deve ser razoavelmente próximo do single-stage (diferença de projeção discreta)
+    // Value must be reasonably close to single-stage (discrete projection difference)
     double v = static_cast<double>(multi->firm_value.units());
     EXPECT_GT(v, 0.0);
 }
 
-// ── Startup / Cenários ────────────────────────────────────────────────────────
+// ── Startup / Scenarios ───────────────────────────────────────────────────────
 
-TEST(Startup, DoisCenariosComSobrevivencia) {
-    // Cenário Bull (60%): FCFF_terminal=200 cents, g=3%, WACC=10%, T=1
+TEST(Startup, TwoScenariosWithSurvival) {
+    // Bull scenario (60%): FCFF_terminal=200 cents, g=3%, WACC=10%, T=1
     //   TV = 200×(1.03)/0.07 = 200×(103/100)/(7/100) = 200×103/7 ≈ 2942.9 cents
     //   PV = 2942.9/1.1 ≈ 2675.3 cents
-    // Cenário Bear (40%): FCFF_terminal=100 cents, g=2%, WACC=12%, T=1
+    // Bear scenario (40%): FCFF_terminal=100 cents, g=2%, WACC=12%, T=1
     //   TV = 100×(1.02)/0.10 = 1020 cents
     //   PV = 1020/1.12 ≈ 910.7 cents
     // E[EV] = 0.6×2675.3 + 0.4×910.7 = 1605.2 + 364.3 = 1969.5 cents
@@ -1120,16 +1120,16 @@ TEST(Startup, DoisCenariosComSobrevivencia) {
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->scenario_evs.size(), 2u);
     EXPECT_GT(result->enterprise_value.units(), 0);
-    // Valor ajustado < valor esperado sem ajuste de sobrevivência
+    // Adjusted value < expected value without survival adjustment
     double ev = static_cast<double>(result->enterprise_value.units());
-    EXPECT_LT(ev, 2000.0);   // < E[EV] pré-ajuste ≈ 1969.5
+    EXPECT_LT(ev, 2000.0);   // < pre-adjustment E[EV] ≈ 1969.5
 }
 
-TEST(Startup, ProbabilidadesNaoSomam1Rejeitado) {
+TEST(Startup, ProbabilitiesNotSum1Rejected) {
     auto result = startup_valuation(StartupValuationInputs{
         .scenarios = {
             {"A", {1,2}, usd_cur(100), {3,100}, {1,10}, 1},
-            // prob total = 0.5, não 1.0
+            // total prob = 0.5, not 1.0
         },
         .survival_probability = {1, 1},
         .failure_value        = usd_cur(0),
@@ -1140,7 +1140,7 @@ TEST(Startup, ProbabilidadesNaoSomam1Rejeitado) {
     EXPECT_EQ(result.error(), ValuationError::InvalidInput);
 }
 
-TEST(Startup, SobrevivenciaZeroRetornaFailureValue) {
+TEST(Startup, ZeroSurvivalReturnsFailureValue) {
     // P(survive)=0 → EV = failure_value
     auto result = startup_valuation(StartupValuationInputs{
         .scenarios = {
@@ -1155,9 +1155,9 @@ TEST(Startup, SobrevivenciaZeroRetornaFailureValue) {
     EXPECT_EQ(result->enterprise_value.units(), 5000);
 }
 
-// ── Distress — Equity como Opção ──────────────────────────────────────────────
+// ── Distress — Equity as an Option ────────────────────────────────────────────
 
-TEST(Distress, EquityPositivoMenorQueAtivos) {
+TEST(Distress, EquityPositiveLessThanAssets) {
     // V=100, D=80, σ=20%, r=5%, T=1
     auto res = equity_as_option({100.0, 80.0, 0.20, 0.05, 1.0});
     EXPECT_GT(res.equity_value, 0.0);
@@ -1165,29 +1165,29 @@ TEST(Distress, EquityPositivoMenorQueAtivos) {
     EXPECT_NEAR(res.equity_value + res.debt_market_value, 100.0, 1e-9);
 }
 
-TEST(Distress, ProbabilidadeDefaultEntre0e1) {
+TEST(Distress, DefaultProbabilityBetween0And1) {
     auto res = equity_as_option({100.0, 80.0, 0.20, 0.05, 1.0});
     EXPECT_GE(res.probability_default, 0.0);
     EXPECT_LE(res.probability_default, 1.0);
 }
 
-TEST(Distress, DistressProfundoEquityTemValorTemporal) {
-    // V=50 < D=100 (firma insolvente hoje): equity ainda tem valor pela optionalidade
+TEST(Distress, DeepDistressEquityHasTimeValue) {
+    // V=50 < D=100 (firm insolvent today): equity still has value through optionality
     auto res = equity_as_option({50.0, 100.0, 0.40, 0.05, 3.0});
     EXPECT_GT(res.equity_value, 0.0);         // time value > 0
-    EXPECT_GT(res.probability_default, 0.5);  // provavelmente vai fazer default
+    EXPECT_GT(res.probability_default, 0.5);  // likely to default
 }
 
-TEST(Distress, FirmaSaudavelBaixaProb) {
-    // V muito maior que D: default improvável
+TEST(Distress, HealthyFirmLowDefaultProb) {
+    // V much larger than D: default unlikely
     auto res = equity_as_option({1000.0, 100.0, 0.20, 0.05, 1.0});
     EXPECT_LT(res.probability_default, 0.01);
     EXPECT_NEAR(res.equity_value, 900.0, 20.0);  // equity ≈ V − D
 }
 
-// ── Banco — FCFE com Capital Regulatório ──────────────────────────────────────
+// ── Bank FCFE with Regulatory Capital ─────────────────────────────────────────
 
-TEST(Bank, FCFEBasico) {
+TEST(Bank, BasicFCFE) {
     // NI=10000 cents, RR=30% → FCFE = 10000×0.7 = 7000
     auto result = compute_bank_fcfe(BankFCFEInputs{
         .net_income                = usd_cur(10000),
@@ -1206,7 +1206,7 @@ TEST(Bank, RRZeroFCFEEqualsNI) {
     EXPECT_EQ(result->units(), 10000);
 }
 
-TEST(Bank, CapitalRegulatorioDerivado) {
+TEST(Bank, DerivedRegulatoryCapital) {
     // current_rwa=100000, projected_rwa=110000, Δ=10000
     // target_tier1=8% → ΔCapital = 10000 × 0.08 = 800 cents
     // NI=5000 → equity_RR = 800/5000 = 4/25
@@ -1221,10 +1221,10 @@ TEST(Bank, CapitalRegulatorioDerivado) {
     EXPECT_EQ(rr->den, 25);
 }
 
-// ── Normalização de Resultados ────────────────────────────────────────────────
+// ── Earnings Normalization ────────────────────────────────────────────────────
 
-TEST(Normalize, MediaHistorica) {
-    // [8000, 9000, 10000, 11000, 12000] → média = 10000 cents
+TEST(Normalize, HistoricalAverage) {
+    // [8000, 9000, 10000, 11000, 12000] → average = 10000 cents
     auto result = normalize_ebit(NormalizationInputs{
         .method        = NormalizationMethod::HistoricalAverage,
         .historical_ebit = {
@@ -1238,8 +1238,8 @@ TEST(Normalize, MediaHistorica) {
     EXPECT_EQ(result->units(), 10000);
 }
 
-TEST(Normalize, MargemNormalizada) {
-    // receita=100000 cents ($1000), margem=15% → EBIT = 15000 cents ($150)
+TEST(Normalize, NormalizedMargin) {
+    // revenue=100000 cents ($1000), margin=15% → EBIT = 15000 cents ($150)
     auto result = normalize_ebit(NormalizationInputs{
         .method            = NormalizationMethod::NormalizedMargin,
         .historical_ebit   = {},
@@ -1250,10 +1250,10 @@ TEST(Normalize, MargemNormalizada) {
     EXPECT_EQ(result->units(), 15000);
 }
 
-TEST(Normalize, MenosDeDoisPeriodosRejeitado) {
+TEST(Normalize, LessThanTwoPeriodsRejected) {
     auto result = normalize_ebit(NormalizationInputs{
         .method          = NormalizationMethod::HistoricalAverage,
-        .historical_ebit = {usd_cur(5000)},   // só 1 período
+        .historical_ebit = {usd_cur(5000)},   // only 1 period
         .current_revenue = usd_cur(0),
         .normalized_margin = {0, 1},
     });
@@ -1263,8 +1263,8 @@ TEST(Normalize, MenosDeDoisPeriodosRejeitado) {
 
 // ── APV Miles-Ezzell ──────────────────────────────────────────────────────────
 
-TEST(APVMilesEzzell, MenorQueMM) {
-    // ME sempre dá PV(TS) menor que MM porque desconta parte dos shields a Ku (>Kd)
+TEST(APVMilesEzzell, LessThanMM) {
+    // ME always gives PV(TS) smaller than MM because it discounts part of the shields at Ku (>Kd)
     auto fcffs = project_fcff(FCFFProjection{
         .base_fcff = usd_cur(10000),
         .stages    = {{Rational{0, 1}, 1}},
@@ -1292,18 +1292,18 @@ TEST(APVMilesEzzell, MenorQueMM) {
     });
     ASSERT_TRUE(mm.has_value());
     ASSERT_TRUE(me.has_value());
-    // PV(TS) MM > PV(TS) ME (MM é mais otimista)
+    // PV(TS) MM > PV(TS) ME (MM is more optimistic)
     EXPECT_GT(mm->pv_tax_shield.units(), me->pv_tax_shield.units());
-    // Mas ambos positivos
+    // Both positive
     EXPECT_GT(me->pv_tax_shield.units(), 0);
 }
 
-TEST(APVMilesEzzell, FormulaNumerica) {
+TEST(APVMilesEzzell, NumericalFormula) {
     // D=100000 cents=$1000, t=34%, Kd=6%, Ku=15%, g=0%
     // PV(TS)_ME = 34% × 6% × 1000 × (1.15) / [(1.06) × (15%)] [g=0]
     //           = 0.34 × 0.06 × 1000 × 1.15 / (1.06 × 0.15)
     //           = 23.46 / 0.159 ≈ 147.5...
-    // Verificação: MM daria 340. ME é ~43% do MM neste caso.
+    // Verification: MM would give 340. ME is ~43% of MM in this case.
     auto fcffs = project_fcff(FCFFProjection{
         .base_fcff = usd_cur(10000),
         .stages    = {{Rational{0, 1}, 1}},
@@ -1321,5 +1321,5 @@ TEST(APVMilesEzzell, FormulaNumerica) {
     });
     ASSERT_TRUE(me.has_value());
     double pv_ts = static_cast<double>(me->pv_tax_shield.units()) / 100.0;
-    EXPECT_NEAR(pv_ts, 147.5, 1.0);  // tolerância de $1 por arredondamento
+    EXPECT_NEAR(pv_ts, 147.5, 1.0);  // $1 tolerance for rounding
 }

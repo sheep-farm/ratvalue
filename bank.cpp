@@ -36,7 +36,7 @@ bank_equity_reinvestment_rate(const RegulatoryCapitalInputs& inputs) {
     auto delta_rwa = inputs.projected_rwa.subtract(inputs.current_rwa);
     if (!delta_rwa) return std::unexpected(ValuationError::MoneyError);
 
-    // ΔCapital = ΔRWA × target_tier1_ratio  →  em unidades monetárias
+    // ΔCapital = ΔRWA × target_tier1_ratio  →  in monetary units
     auto delta_cap = delta_rwa->scale(inputs.target_tier1_ratio);
     if (!delta_cap) return std::unexpected(ValuationError::MoneyError);
 

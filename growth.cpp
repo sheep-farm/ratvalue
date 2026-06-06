@@ -24,7 +24,7 @@ compute_reinvestment_rate(const ReinvestmentRateInputs& inputs) {
     if (inputs.nopat.units() == 0)
         return std::unexpected(ValuationError::InvalidInput);
 
-    // reinvestimento = CapEx - D&A + ΔCGN
+    // reinvestment = CapEx - D&A + ΔNWC
     auto step1 = inputs.capex.subtract(inputs.depreciation_amortization);
     if (!step1) return std::unexpected(ValuationError::MoneyError);
     auto reinv = step1->add(inputs.delta_nwc);

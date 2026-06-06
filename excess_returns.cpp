@@ -53,7 +53,7 @@ excess_returns_multistage(const MultiStageERInputs& inputs) {
         if (lhs <= rhs) return std::unexpected(ValuationError::WACCLEGrowth);
     }
 
-    // (ROIC − WACC) como Rational para escalar IC_t em cada período
+    // (ROIC − WACC) as Rational to scale IC_t each period
     auto roic_minus_wacc = detail::r_sub(inputs.roic, inputs.wacc);
     if (!roic_minus_wacc) return std::unexpected(roic_minus_wacc.error());
 
@@ -61,7 +61,7 @@ excess_returns_multistage(const MultiStageERInputs& inputs) {
     const auto& desc    = inputs.base_invested_capital.description();
     const auto& rate    = inputs.base_invested_capital.rate();
 
-    // Projeta IC_t e acumula PV(EVA_t)
+    // Project IC_t and accumulate PV(EVA_t)
     auto ic_proj = project_fcff(FCFFProjection{
         .base_fcff = inputs.base_invested_capital,
         .stages    = inputs.stages,
@@ -75,7 +75,7 @@ excess_returns_multistage(const MultiStageERInputs& inputs) {
         pv_eva += detail::to_double(*eva) * std::pow(1.0 + wacc_d, -(t + 1));
     }
 
-    // Valor terminal dos excess returns: (ROIC_stable − WACC) × IC_N / (WACC − g_stable)
+    // Terminal value of excess returns: (ROIC_stable − WACC) × IC_N / (WACC − g_stable)
     const ratmoney::Currency& ic_n = ic_proj->back();
 
     auto terminal_roic_minus_wacc = detail::r_sub(inputs.terminal_roic, inputs.wacc);

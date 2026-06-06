@@ -3,14 +3,14 @@
 
 namespace ratvalue {
 
-// N(x) = P(Z ≤ x) para distribuição normal padrão
+// N(x) = P(Z ≤ x) for the standard normal distribution
 static double normal_cdf(double x) noexcept {
     // N(x) = 0.5 × erfc(−x / √2)
     return 0.5 * std::erfc(-x * 0.7071067811865475);  // 1/√2
 }
 
 EquityAsOptionResult equity_as_option(const EquityAsOptionInputs& in) noexcept {
-    // Valores indefinidos/degenerar: retornar zeros em vez de NaN/crash
+    // Undefined/degenerate inputs: return zeros instead of NaN/crash
     if (in.firm_value <= 0.0 || in.debt_face_value <= 0.0
      || in.asset_volatility <= 0.0 || in.debt_maturity <= 0.0)
         return {};

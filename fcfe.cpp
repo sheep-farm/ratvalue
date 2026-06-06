@@ -21,21 +21,21 @@ compute_fcfe(const FCFEInputs& inputs) {
         static_cast<__int128>(inputs.debt_ratio.den));
     if (!one_minus_delta) return std::unexpected(one_minus_delta.error());
 
-    // reinvestimento total: CapEx - D&A + ΔCGN
+    // total reinvestment: CapEx - D&A + ΔNWC
     auto step1 = inputs.capex.subtract(inputs.depreciation_amortization);
     if (!step1) return std::unexpected(ValuationError::MoneyError);
     auto net_inv = step1->add(inputs.delta_nwc);
     if (!net_inv) return std::unexpected(ValuationError::MoneyError);
 
-    // parcela do acionista: reinvestimento × (1 - δ)
+    // equity share of reinvestment: reinvestment × (1 - δ)
     auto equity_reinv = net_inv->scale(*one_minus_delta);
     if (!equity_reinv) return std::unexpected(ValuationError::MoneyError);
 
-    // NI - reinvestimento do acionista
+    // NI - equity reinvestment
     auto r1 = inputs.net_income.subtract(*equity_reinv);
     if (!r1) return std::unexpected(ValuationError::MoneyError);
 
-    // + nova dívida líquida
+    // + net new debt
     auto fcfe = r1->add(inputs.net_new_debt);
     if (!fcfe) return std::unexpected(ValuationError::MoneyError);
 

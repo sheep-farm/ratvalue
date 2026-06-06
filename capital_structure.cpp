@@ -30,12 +30,12 @@ optimal_capital_structure(const OptimalCapitalStructureInputs& inputs) {
     schedule.reserve(N);
 
     for (int i = 0; i < N; ++i) {
-        // ── d = i/N como Rational ─────────────────────────────────────────────
+        // ── d = i/N as Rational ──────────────────────────────────────────────
         auto d_rat = detail::make_rational(
             static_cast<__int128>(i), static_cast<__int128>(N));
         if (!d_rat) continue;
 
-        // D/E = i/(N-i);  para i=0 → D/E = 0
+        // D/E = i/(N-i);  for i=0 → D/E = 0
         auto de_rat = (i == 0)
             ? detail::make_rational(0, 1)
             : detail::make_rational(static_cast<__int128>(i),
@@ -56,7 +56,7 @@ optimal_capital_structure(const OptimalCapitalStructureInputs& inputs) {
         });
         if (!ke) continue;
 
-        // ── Kd sintético com iteração ICR ─────────────────────────────────────
+        // ── Synthetic Kd with ICR iteration ──────────────────────────────────
         SyntheticKdResult kd_res{
             .cost_of_debt      = inputs.risk_free_rate,
             .default_spread    = {0, 1},
@@ -114,7 +114,7 @@ optimal_capital_structure(const OptimalCapitalStructureInputs& inputs) {
     if (schedule.empty())
         return std::unexpected(ValuationError::InvalidInput);
 
-    // Mínimo de WACC (comparado como double para evitar overflow em Rational cruzado)
+    // Minimum WACC (compared as double to avoid overflow in cross-Rational comparison)
     auto opt_it = std::min_element(
         schedule.begin(), schedule.end(),
         [](const CapitalStructurePoint& a, const CapitalStructurePoint& b) {

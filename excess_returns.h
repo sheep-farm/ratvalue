@@ -6,25 +6,25 @@
 
 namespace ratvalue {
 
-// ── Modelo de Excess Returns / EVA (Damodaran) ────────────────────────────────
+// ── Excess Returns / EVA Model (Damodaran) ───────────────────────────────────
 //
-// Decompõe o valor da firma em:
-//   1. Capital investido existente (valor dos ativos em operação)
-//   2. PV dos retornos em excesso sobre o WACC (onde vem o crescimento de valor)
+// Decomposes firm value into:
+//   1. Existing invested capital (value of assets in operation)
+//   2. PV of returns in excess of WACC (where value growth comes from)
 //
-// V = IC + PV(EVA_t)   onde   EVA_t = (ROIC_t − WACC) × IC_t
+// V = IC + PV(EVA_t)   where   EVA_t = (ROIC_t − WACC) × IC_t
 //
-// Vantagem sobre DCF puro: torna explícito QUANDO e POR QUANTO a firma cria
-// (ROIC > WACC) ou destrói (ROIC < WACC) valor.  Matematicamente equivalente
-// ao DCF quando os inputs são consistentes.
+// Advantage over pure DCF: makes explicit WHEN and BY HOW MUCH the firm creates
+// (ROIC > WACC) or destroys (ROIC < WACC) value.  Mathematically equivalent
+// to DCF when inputs are consistent.
 
 struct ExcessReturnsResult {
     ratmoney::Currency firm_value;         // IC + PV(EVA)
-    ratmoney::Currency asset_value;        // IC (valor dos ativos atuais = "chão" do valor)
-    ratmoney::Currency pv_excess_returns;  // PV(EVA) — positivo se ROIC > WACC
+    ratmoney::Currency asset_value;        // IC (value of current assets = "floor" of value)
+    ratmoney::Currency pv_excess_returns;  // PV(EVA) — positive if ROIC > WACC
 };
 
-// ── Versão monoestágio (fórmula fechada, aritmética racional exata) ───────────
+// ── Single-stage version (closed form, exact rational arithmetic) ─────────────
 //
 // V = IC × (ROIC − g) / (WACC − g)
 // PV(EVA) = IC × (ROIC − WACC) / (WACC − g)
@@ -39,17 +39,17 @@ struct SingleStageERInputs {
 [[nodiscard]] std::expected<ExcessReturnsResult, ValuationError>
 excess_returns_value(const SingleStageERInputs& inputs);
 
-// ── Versão multiestágio ───────────────────────────────────────────────────────
+// ── Multi-stage version ───────────────────────────────────────────────────────
 //
-// Projeta IC_t = IC_0 × ∏(1+g_estágio) e computa EVA_t = (ROIC−WACC)×IC_t.
-// Desconto via double (potências — mesma razão do DCF).
+// Projects IC_t = IC_0 × ∏(1+g_stage) and computes EVA_t = (ROIC−WACC)×IC_t.
+// Discounting via double (powers — same rationale as DCF).
 
 struct MultiStageERInputs {
     ratmoney::Currency           base_invested_capital;
-    ratmoney::Rational           roic;             // ROIC durante o período explícito
-    std::vector<ProjectionStage> stages;           // crescimento do IC por estágio
+    ratmoney::Rational           roic;             // ROIC during the explicit period
+    std::vector<ProjectionStage> stages;           // IC growth by stage
     ratmoney::Rational           wacc;
-    ratmoney::Rational           terminal_roic;    // ROIC na perpetuidade
+    ratmoney::Rational           terminal_roic;    // ROIC in perpetuity
     ratmoney::Rational           terminal_growth;
 };
 

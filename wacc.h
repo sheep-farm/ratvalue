@@ -5,13 +5,13 @@
 
 namespace ratvalue {
 
-// Inputs para cálculo do WACC
+// WACC computation inputs
 struct WACCInputs {
-    ratmoney::Rational equity_weight;   // E / (E + D), peso do capital próprio
-    ratmoney::Rational debt_weight;     // D / (E + D), peso da dívida
-    ratmoney::Rational cost_of_equity;  // Ke, custo do capital próprio
-    ratmoney::Rational cost_of_debt;    // Kd, custo da dívida (pré-imposto)
-    ratmoney::Rational tax_rate;        // t, alíquota marginal de imposto
+    ratmoney::Rational equity_weight;   // E / (E + D), equity weight
+    ratmoney::Rational debt_weight;     // D / (E + D), debt weight
+    ratmoney::Rational cost_of_equity;  // Ke, cost of equity
+    ratmoney::Rational cost_of_debt;    // Kd, pre-tax cost of debt
+    ratmoney::Rational tax_rate;        // t, marginal tax rate
 };
 
 // WACC = E_w × Ke + D_w × Kd × (1 - t)

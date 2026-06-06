@@ -6,43 +6,43 @@
 
 namespace ratvalue {
 
-// ── Equação de Hamada ─────────────────────────────────────────────────────────
+// ── Hamada Equation ───────────────────────────────────────────────────────────
 //
-// β_alavancado = β_desalavancado × [1 + (1-t) × D/E]
-// β_desalavancado = β_alavancado / [1 + (1-t) × D/E]
+// β_levered   = β_unlevered × [1 + (1-t) × D/E]
+// β_unlevered = β_levered   / [1 + (1-t) × D/E]
 //
-// Fundamenta: a alavancagem financeira amplifica o risco sistemático.
+// Rationale: financial leverage amplifies systematic risk.
 
-// Alavancar: dado β_u do setor, calcular β_l para uma estrutura D/E específica
+// Lever: given sector β_u, compute β_l for a specific D/E structure
 [[nodiscard]] std::expected<ratmoney::Rational, ValuationError>
 lever_beta(ratmoney::Rational unlevered_beta,
            ratmoney::Rational debt_to_equity,
            ratmoney::Rational tax_rate);
 
-// Desalavancar: dado β_l observado no mercado, remover o efeito da estrutura de capital
+// Unlever: given market-observed β_l, remove the effect of capital structure
 [[nodiscard]] std::expected<ratmoney::Rational, ValuationError>
 unlever_beta(ratmoney::Rational levered_beta,
              ratmoney::Rational debt_to_equity,
              ratmoney::Rational tax_rate);
 
-// ── Beta Bottom-Up (Damodaran) ────────────────────────────────────────────────
+// ── Bottom-Up Beta (Damodaran) ────────────────────────────────────────────────
 //
-// 1. Desalavancar os betas de empresas comparáveis → média de β_u
-// 2. Re-alavancar pela estrutura de capital da empresa-alvo
+// 1. Unlever betas of comparable firms → average β_u
+// 2. Re-lever by the target firm's capital structure
 //
-// Vantagem sobre beta histórico: menos ruído, mais estável, reflete o setor atual.
+// Advantage over historical beta: less noise, more stable, reflects current sector.
 
 struct BottomUpBetaInputs {
-    std::vector<ratmoney::Rational> comparable_levered_betas;  // betas de mercado dos comparáveis
-    std::vector<ratmoney::Rational> comparable_debt_to_equity; // D/E de cada comparável
-    ratmoney::Rational              comparable_tax_rate;        // alíquota média do setor
-    ratmoney::Rational              target_debt_to_equity;      // D/E da empresa-alvo
-    ratmoney::Rational              target_tax_rate;            // alíquota da empresa-alvo
+    std::vector<ratmoney::Rational> comparable_levered_betas;  // market betas of comparables
+    std::vector<ratmoney::Rational> comparable_debt_to_equity; // D/E of each comparable
+    ratmoney::Rational              comparable_tax_rate;        // average sector tax rate
+    ratmoney::Rational              target_debt_to_equity;      // D/E of the target firm
+    ratmoney::Rational              target_tax_rate;            // target firm tax rate
 };
 
-// Retorna β_alavancado para a estrutura-alvo.
-// A média dos β_desalavancados é computada em double (dados de mercado, sem precisão exata).
-// O resultado é aproximado para 4 casas decimais como Rational.
+// Returns β_levered for the target structure.
+// Average of β_unlevered is computed in double (market data — 4 decimal places sufficient).
+// Result is rounded to 4 decimal places as Rational.
 [[nodiscard]] std::expected<ratmoney::Rational, ValuationError>
 bottom_up_beta(const BottomUpBetaInputs& inputs);
 

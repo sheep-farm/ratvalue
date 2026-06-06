@@ -5,51 +5,51 @@
 
 namespace ratvalue {
 
-// ── Auditoria de consistência do Valor Terminal ───────────────────────────────
+// ── Terminal Value Consistency Audit ─────────────────────────────────────────
 //
-// O Gordon Growth implícito no TV exige que a firma reinvista exatamente
-// g/ROIC_estável de cada unidade de NOPAT. Damodaran chama isso de "restrição
-// de reinvestimento consistente" — ignorá-la produz TV inflado ou deflado.
+// The Gordon Growth implicit in TV requires the firm to reinvest exactly
+// g/ROIC_stable of each NOPAT unit. Damodaran calls this the "consistent
+// reinvestment constraint" — ignoring it produces an inflated or deflated TV.
 
 struct TerminalConsistency {
-    ratmoney::Rational implied_reinvestment_rate;  // g / ROIC_estável
-    ratmoney::Rational return_spread;              // ROIC_estável − WACC
+    ratmoney::Rational implied_reinvestment_rate;  // g / ROIC_stable
+    ratmoney::Rational return_spread;              // ROIC_stable − WACC
     bool               value_creating;             // ROIC > WACC
     bool               reinvestment_feasible;      // 0 ≤ g/ROIC ≤ 1
 };
 
-// Não retorna expected — análise puramente informativa, sem divisão por zero
-// desde que terminal_roic.num ≠ 0.
+// Does not return expected — purely informational analysis, no division by zero
+// as long as terminal_roic.num ≠ 0.
 TerminalConsistency check_terminal_consistency(
     ratmoney::Rational wacc,
     ratmoney::Rational terminal_growth,
     ratmoney::Rational terminal_roic);
 
-// ── TV com ROIC consistente (Damodaran, Investment Valuation ch. 12) ──────────
+// ── TV with Consistent ROIC (Damodaran, Investment Valuation ch. 12) ─────────
 //
-// TV = NOPAT_estável × (1 − g/ROIC) / (WACC − g)
+// TV = NOPAT_stable × (1 − g/ROIC) / (WACC − g)
 //
-// Diferença em relação ao Gordon padrão: usa NOPAT (não FCFF) como base,
-// derivando o FCFF estável pela RR implícita.  Exige que ROIC > g (caso
-// contrário a firma precisaria reinvestir mais do que ganha para crescer).
+// Difference from standard Gordon: uses NOPAT (not FCFF) as base,
+// deriving stable FCFF via implied RR.  Requires ROIC > g (otherwise
+// the firm would need to reinvest more than it earns to grow).
 
 struct ConsistentTVInputs {
-    ratmoney::Currency stable_nopat;     // NOPAT do período terminal (= EBIT × (1-t))
+    ratmoney::Currency stable_nopat;     // NOPAT of terminal period (= EBIT × (1-t))
     ratmoney::Rational wacc;
-    ratmoney::Rational terminal_growth;  // g estável
-    ratmoney::Rational terminal_roic;    // ROIC esperado na perpetuidade
+    ratmoney::Rational terminal_growth;  // stable g
+    ratmoney::Rational terminal_roic;    // expected ROIC in perpetuity
 };
 
 [[nodiscard]] std::expected<ratmoney::Currency, ValuationError>
 consistent_terminal_value(const ConsistentTVInputs& inputs);
 
-// ── TV por Múltiplo ───────────────────────────────────────────────────────────
+// ── TV by Multiple ────────────────────────────────────────────────────────────
 //
-// Alternativa ao Gordon Growth: ancora o TV em múltiplo de mercado observado.
-// TV = EBITDA_terminal × múltiplo EV/EBITDA
+// Alternative to Gordon Growth: anchors TV to an observed market multiple.
+// TV = EBITDA_terminal × EV/EBITDA multiple
 //
-// Vantagem: não depende de hipóteses sobre g e WACC na perpetuidade.
-// Desvantagem: importa inconsistências de mercado para dentro do modelo.
+// Advantage: does not depend on g and WACC assumptions in perpetuity.
+// Disadvantage: imports market inconsistencies into the model.
 
 [[nodiscard]] std::expected<ratmoney::Currency, ValuationError>
 terminal_value_by_multiple(ratmoney::Currency terminal_ebitda,

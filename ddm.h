@@ -6,46 +6,46 @@
 
 namespace ratvalue {
 
-// Inputs para o Dividend Discount Model (DDM) multi-estágio de Damodaran
+// Inputs for Damodaran's multi-stage Dividend Discount Model (DDM)
 struct DDMInputs {
-    ratmoney::Currency           base_dividend_per_share;  // dividendo por ação (D₀)
-    std::vector<ProjectionStage> stages;                   // estágios de crescimento explícito
-    ratmoney::Rational           cost_of_equity;           // Ke, taxa de desconto
-    ratmoney::Rational           stable_growth;            // g terminal (perpétuo)
+    ratmoney::Currency           base_dividend_per_share;  // dividend per share (D₀)
+    std::vector<ProjectionStage> stages;                   // explicit growth stages
+    ratmoney::Rational           cost_of_equity;           // Ke, discount rate
+    ratmoney::Rational           stable_growth;            // terminal g (perpetual)
 };
 
-// Resultado do DDM
+// DDM result
 struct DDMResult {
-    ratmoney::Currency              intrinsic_value_per_share;  // valor intrínseco
-    std::vector<ratmoney::Currency> projected_dividends;        // dividendos projetados
-    ratmoney::Currency              pv_dividends;               // PV dos dividendos explícitos
-    ratmoney::Currency              terminal_value_per_share;   // TV (sem descontar)
-    ratmoney::Currency              pv_terminal_value;          // PV do TV
+    ratmoney::Currency              intrinsic_value_per_share;  // intrinsic value
+    std::vector<ratmoney::Currency> projected_dividends;        // projected dividends
+    ratmoney::Currency              pv_dividends;               // PV of explicit dividends
+    ratmoney::Currency              terminal_value_per_share;   // TV (undiscounted)
+    ratmoney::Currency              pv_terminal_value;          // PV of TV
 };
 
-// Gordon Growth Model multi-estágio: dividendos explícitos + TV por perpetuidade
+// Multi-stage Gordon Growth Model: explicit dividends + TV by perpetuity
 [[nodiscard]] std::expected<DDMResult, ValuationError>
 compute_ddm(const DDMInputs& inputs);
 
 // ── H-Model (Fuller & Hsia, 1984) ────────────────────────────────────────────
 //
-// Fórmula fechada para crescimento que declina linearmente de g_alto → g_estável
-// em 2H anos, com H = meia-vida do período de alto crescimento.
+// Closed-form formula for growth declining linearly from g_high → g_stable
+// over 2H years, where H = half-life of the high-growth period.
 //
-// P = D₀ × [(1 + g_estável) + H × (g_alto - g_estável)] / (Ke - g_estável)
+// P = D₀ × [(1 + g_stable) + H × (g_high - g_stable)] / (Ke - g_stable)
 //
-// Resultado é exato via aritmética racional (sem loop de desconto).
+// Result is exact via rational arithmetic (no discounting loop).
 struct HModelInputs {
-    ratmoney::Currency base_dividend;   // D₀ — dividendo atual
-    ratmoney::Rational high_growth;     // g_alto — taxa inicial (maior)
-    ratmoney::Rational stable_growth;   // g_estável — taxa terminal
-    ratmoney::Rational half_life;       // H — meia-vida em anos (ex: {5,1} = 5 anos)
+    ratmoney::Currency base_dividend;   // D₀ — current dividend
+    ratmoney::Rational high_growth;     // g_high — initial (higher) rate
+    ratmoney::Rational stable_growth;   // g_stable — terminal rate
+    ratmoney::Rational half_life;       // H — half-life in years (e.g. {5,1} = 5 years)
     ratmoney::Rational cost_of_equity;  // Ke
 };
 
 struct HModelResult {
-    ratmoney::Currency intrinsic_value;   // preço intrínseco
-    ratmoney::Rational tv_multiplier;     // multiplicador sobre D₀ (para auditoria)
+    ratmoney::Currency intrinsic_value;   // intrinsic price
+    ratmoney::Rational tv_multiplier;     // multiplier on D₀ (for auditing)
 };
 
 [[nodiscard]] std::expected<HModelResult, ValuationError>

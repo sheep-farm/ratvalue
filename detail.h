@@ -1,5 +1,5 @@
 #pragma once
-// Cabeçalho interno — não faz parte da API pública.
+// Internal header — not part of the public API.
 
 #include "types.h"
 #include <cmath>
@@ -8,7 +8,7 @@
 
 namespace ratvalue::detail {
 
-// ── aritmética inteira ──────────────────────────────────────────────────────
+// ── integer arithmetic ──────────────────────────────────────────────────────
 
 inline bool fits_int64(__int128 v) noexcept {
     return v >= static_cast<__int128>(std::numeric_limits<int64_t>::min())
@@ -22,7 +22,7 @@ inline __int128 gcd128(__int128 a, __int128 b) noexcept {
     return a == 0 ? 1 : a;
 }
 
-// Normaliza par (__int128 num, den) → Rational, verificando overflow.
+// Normalize pair (__int128 num, den) → Rational, checking for overflow.
 inline std::expected<ratmoney::Rational, ValuationError>
 make_rational(__int128 n, __int128 d) {
     if (d == 0) return std::unexpected(ValuationError::InvalidInput);
@@ -38,7 +38,7 @@ make_rational(__int128 n, __int128 d) {
     }
 }
 
-// ── aritmética racional ─────────────────────────────────────────────────────
+// ── rational arithmetic ─────────────────────────────────────────────────────
 
 inline std::expected<ratmoney::Rational, ValuationError>
 r_add(ratmoney::Rational a, ratmoney::Rational b) {
@@ -78,26 +78,26 @@ one_plus(ratmoney::Rational r) {
         static_cast<__int128>(r.den));
 }
 
-// ── validação de moeda ─────────────────────────────────────────────────────
+// ── currency validation ────────────────────────────────────────────────────
 
-// Dois Currency compartilham a mesma denominação se têm o mesmo CurrencyDescription.
-// O campo `rate` não faz parte da identidade da denominação — é só fator de conversão.
+// Two Currency values share the same denomination if they have the same CurrencyDescription.
+// The `rate` field is not part of the denomination identity — it is only a conversion factor.
 inline bool same_currency(const ratmoney::Currency& a,
                            const ratmoney::Currency& b) noexcept {
     return a.description() == b.description();
 }
 
-// ── utilitário monetário ────────────────────────────────────────────────────
+// ── monetary utility ────────────────────────────────────────────────────────
 
-// Converte Currency para double em unidades maiores (ex: 100 centavos → 1.00).
-// Equivalente ao to_double() do ratmoney, implementado aqui para independência de versão.
+// Converts Currency to double in major units (e.g. 100 cents → 1.00).
+// Equivalent to ratmoney's to_double(), implemented here for version independence.
 inline double to_double(const ratmoney::Currency& c) noexcept {
     double divisor = 1.0;
     for (uint8_t i = 0; i < c.description().precision; ++i) divisor *= 10.0;
     return static_cast<double>(c.units()) / divisor;
 }
 
-// Converte valor em unidades maiores (ex: 42.00 BRL) para Currency.
+// Converts value in major units (e.g. 42.00 BRL) to Currency.
 inline std::expected<ratmoney::Currency, ValuationError>
 make_currency_from_double(double value,
                            ratmoney::Rational rate,
