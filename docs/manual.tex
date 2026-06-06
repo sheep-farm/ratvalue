@@ -22,11 +22,39 @@
 \usepackage{array}
 \usepackage{mathtools}
 \usepackage{tikz}
+\usepackage{pdflscape}
+\usetikzlibrary{arrows.meta, calc}
 \usepackage{lmodern}
 
 \tcbuselibrary{skins, breakable}
 
 %% ── C++ code style ─────────────────────────────────────────────────────────────
+%% ── Flowchart colours (Chapter 14) ────────────────────────────────────────────
+\colorlet{FCi}{blue!12}   \colorlet{FBi}{blue!55!black}
+\colorlet{FCc}{green!13}  \colorlet{FBc}{green!45!black}
+\colorlet{FCo}{yellow!25} \colorlet{FBo}{orange!75!black}
+\colorlet{FCa}{violet!10} \colorlet{FBa}{violet!70!black}
+\colorlet{FCgr}{gray!7}   \colorlet{FBgr}{gray!45}
+
+\tikzset{
+  Finp/.style  = {draw=FBi, fill=FCi, thick, rounded corners=3pt,
+                  minimum width=3.5cm, minimum height=0.62cm,
+                  align=center, font=\small, inner sep=3pt},
+  Fcmp/.style  = {draw=FBc, fill=FCc, thick, rounded corners=3pt,
+                  minimum width=3.5cm, minimum height=0.62cm,
+                  align=center, font=\small, inner sep=3pt},
+  Fres/.style  = {draw=FBo, fill=FCo, thick, rounded corners=3pt,
+                  minimum width=3.5cm, minimum height=0.62cm,
+                  align=center, font=\small, inner sep=3pt},
+  Faltm/.style = {draw=FBa, fill=FCa, thick, rounded corners=3pt,
+                  minimum width=3.0cm, minimum height=0.72cm,
+                  align=center, font=\small, inner sep=3pt},
+  Fgrp/.style  = {draw=FBgr, fill=FCgr, dashed, thick, rounded corners=5pt},
+  Farr/.style  = {-{Stealth[length=5pt]}, thick, FBgr},
+  Farrd/.style = {-{Stealth[length=5pt]}, thick, FBa!75, dashed},
+}
+
+%% ── Code colours ───────────────────────────────────────────────────────────────
 \definecolor{cppblue}{rgb}{0.0,0.25,0.6}
 \definecolor{cppgreen}{rgb}{0.0,0.45,0.1}
 \definecolor{cppgray}{rgb}{0.45,0.45,0.45}
@@ -71,6 +99,11 @@
   title={\textbf{Example:} #1}, fonttitle=\small\bfseries,
   breakable}
 
+\newtcolorbox{impl}[1]{
+  colback=gray!5, colframe=gray!50,
+  title={\textbf{Implementation:} #1}, fonttitle=\small\bfseries,
+  breakable, left=4pt, right=4pt}
+
 %% ── Math commands ──────────────────────────────────────────────────────────────
 %% \ensuremath ensures these work in both text and math mode
 \newcommand{\EBIT}{\ensuremath{\mathrm{EBIT}}}
@@ -92,6 +125,8 @@
 \newcommand{\Ku}{K_u}
 \newcommand{\Rf}{R_f}
 \newcommand{\RR}{\mathrm{RR}}
+\newcommand{\DA}{D\&A}
+\newcommand{\NWC}{\mathrm{NWC}}
 
 %% ── Metadata ───────────────────────────────────────────────────────────────────
 \title{%
@@ -123,7 +158,11 @@ This manual covers:
   \item Theoretical foundations of each valuation model;
   \item Complete C++23 API specification;
   \item Verifiable numerical examples;
-  \item Real-world case study with Petrobras (PETR4) and Itaú Unibanco (ITUB4).
+  \item Real-world case study with Petrobras (PETR4) and Itaú Unibanco (ITUB4);
+  \item Computational graph of the full module dependency structure
+        (Chapter~\ref{ch:dataflow});
+  \item Mathematical reference with exact formulas as implemented, precision
+        summary, and Damodaran fidelity checklist (Appendix~\ref{app:math}).
 \end{itemize}
 
 Prerequisites: familiarity with C++17+, basic linear algebra, and corporate
@@ -1629,35 +1668,159 @@ the bank must retain $\approx 56\%$ of earnings to support the regulatory
 expansion of its asset base.
 
 %% ════════════════════════════════════════════════════════════════════════════════
-\chapter{Data Flow Between Modules}
+\chapter{Computational Graph}
+\label{ch:dataflow}
 
-\section{Overview}
+\section{Module Dependency Diagram}
 
-The diagram below illustrates the typical flow of a complete analysis:
+The following diagram shows the complete dependency graph of the ratvalue
+library.  Solid arrows represent exact rational arithmetic flows;
+dashed arrows indicate shared infrastructure (multi-stage projection
+engine, Gordon TV multiplier, and cost of capital) reused by the
+alternative valuation models.
 
+\begin{landscape}
+\vspace*{\fill}
 \begin{center}
-\small
-\begin{tabular}{c}
-\texttt{normalize} \\
-$\downarrow$ \\
-\texttt{fcff} $\;\longrightarrow\;$ \texttt{growth}
-             $\;\longrightarrow\;$ \texttt{project\_fcff} \\
-$\downarrow$ \\
-\texttt{beta} + \texttt{capm} + \texttt{kd}
-$\;\longrightarrow\;$ \texttt{wacc} \\
-$\downarrow$ \\
-\texttt{dcf} $\;\longrightarrow\;$ \texttt{terminal} \\
-$\quad\longrightarrow\;$ \texttt{apv} (MM + ME) \\
-$\quad\longrightarrow\;$ \texttt{excess\_returns} \\
-$\quad\longrightarrow\;$ \texttt{relative} \\
-$\quad\longrightarrow\;$ \texttt{capital\_structure} \\
-\texttt{fcfe} $\;\longrightarrow\;$ \texttt{fcfe\_dcf} \\
-\texttt{ddm}  $\;\longrightarrow\;$ \texttt{h\_model} \\
-\texttt{startup} (independent) \\
-\texttt{distress} (independent) \\
-\texttt{bank} $\;\longrightarrow\;$ \texttt{fcfe\_dcf}
-\end{tabular}
+{\large\bfseries ratvalue\enspace---\enspace Computational Graph}\\[0.3em]
+{\small\itshape
+Solid arrows = exact rational arithmetic \quad
+Dashed arrows = shared infrastructure (double discounting)}\\[0.8em]
+
+\begin{tikzpicture}[x=1cm, y=1.0cm]
+
+%% Group backgrounds
+\draw[Fgrp] (-0.35,0.4) rectangle (3.95,-6.15);
+\node[font=\footnotesize\bfseries, text=FBi] at (1.8,0.25) {Cost of Capital};
+\draw[Fgrp] (5.05,0.4) rectangle (9.75,-6.15);
+\node[font=\footnotesize\bfseries, text=FBc] at (7.4,0.25) {Cash Flows};
+\draw[Fgrp] (10.7,0.4) rectangle (15.1,-6.15);
+\node[font=\footnotesize\bfseries, text=FBo] at (12.9,0.25) {DCF};
+\draw[Fgrp] (-0.35,-6.55) rectangle (15.1,-10.0);
+\node[font=\footnotesize\bfseries, text=FBa] at (7.37,-6.73)
+  {Alternative Valuation Models};
+
+%% Column A: Cost of Capital
+\node[Finp] (rawbeta) at (1.8,0.0)
+  {Comparables\\$\beta_L^{(i)},\;D/E_i,\;t_i$};
+\node[Fcmp] (hamada) at (1.8,-1.15)
+  {Hamada\\$\beta_L = \beta_U[1+(1-t)\,D/E]$};
+\node[Fcmp] (capm) at (1.8,-2.3)
+  {CAPM\\$K_e = R_f + \beta_L\,\mathrm{ERP} + \lambda\,\mathrm{CRP}$};
+\node[Finp] (finkd) at (1.8,-3.3)
+  {EBIT,\; Interest expense};
+\node[Fcmp] (icr) at (1.8,-4.2)
+  {$\mathrm{ICR} = \mathrm{EBIT}\,/\,\mathrm{Interest}$};
+\node[Fcmp] (kd) at (1.8,-5.1)
+  {Synthetic $K_d$\\rating table (Damodaran 2023)};
+\node[Fcmp] (wacc) at (1.8,-6.05)
+  {$\mathrm{WACC} = \tfrac{E}{V}K_e + \tfrac{D}{V}K_d(1-t)$};
+
+\draw[Farr] (rawbeta) -- (hamada);
+\draw[Farr] (hamada)  -- (capm);
+\draw[Farr] (finkd)   -- (icr);
+\draw[Farr] (icr)     -- (kd);
+\draw[Farr] (kd)      -- (wacc);
+\draw[Farr] (capm.south) -- ++(0,-0.35) -| ($(wacc.north west)+(0.3,0)$);
+
+%% Column B: Cash Flows
+\node[Finp] (stmts) at (7.4,0.0)
+  {Financial statements\\EBIT, D\&A, CapEx, $\Delta$NWC};
+\node[Fcmp] (norm) at (7.4,-1.15)
+  {Normalize EBIT\\hist.\ avg.\ $|$\ norm.\ margin\quad[exact]};
+\node[Fcmp] (fcff) at (7.4,-2.3)
+  {$\mathrm{FCFF}=\mathrm{EBIT}(1{-}t)+\mathrm{D\&A}-\mathrm{CapEx}-\Delta\mathrm{NWC}$\\{[exact]}};
+\node[Finp] (gstage) at (9.6,-2.3)
+  {Stages $(g_k,n_k)$};
+\node[Fcmp] (proj) at (7.4,-3.5)
+  {Multi-stage projection\\$F_t = F_{t-1}(1+g_k)$\quad[exact]};
+\node[Fcmp] (tv) at (7.4,-5.1)
+  {Terminal Value (Gordon)\\$\mathrm{TV}=F_N\cdot\dfrac{1+g}{\mathrm{WACC}-g}$\quad[exact mul.]};
+
+\draw[Farr] (stmts)       -- (norm);
+\draw[Farr] (norm)        -- (fcff);
+\draw[Farr] (fcff)        -- (proj);
+\draw[Farr] (gstage.west) -- (proj.east);
+\draw[Farr] (proj)        -- (tv);
+
+%% Column C: DCF
+\node[Fcmp] (pv) at (12.9,-1.8)
+  {Discount\\$\mathrm{PV}_t = F_t(1+\mathrm{WACC})^{-t}$\quad[double]};
+\node[Fcmp] (ev) at (12.9,-3.0)
+  {Enterprise Value\\$\mathrm{EV} = \sum\mathrm{PV}_t + \mathrm{PV(TV)}$};
+\node[Finp] (dnet) at (14.8,-3.0)
+  {$D_{\mathrm{net}}$};
+\node[Fres] (eqv) at (12.9,-4.2)
+  {Equity Value\\$= \mathrm{EV} - D_{\mathrm{net}}$};
+\node[Fres] (price) at (12.9,-5.4)
+  {\bfseries Fair Value per Share\\$P = \mathrm{Equity}\,/\,n_{\mathrm{shares}}$};
+
+\draw[Farr] (pv)        -- (ev);
+\draw[Farr] (dnet.west) -- (eqv.east);
+\draw[Farr] (ev)        -- (eqv);
+\draw[Farr] (eqv)       -- (price);
+\draw[Farr] (tv.east)       -- ++(0.35,0) |- ($(pv.west)+(0,-0.13)$);
+\draw[Farr] (proj.east)     -- ++(0.2,0)  |- ($(pv.west)+(0,-0.26)$);
+\draw[Farr] (wacc.east)     to[out=0,in=180] ($(pv.west)+(0,0.13)$);
+
+%% Alternative models — row 1
+\node[Faltm] (apvmm)   at (1.5 ,-7.35)
+  {APV (MM)\\$V_U + t\cdot D$};
+\node[Faltm] (apvme)   at (4.7 ,-7.35)
+  {APV (Miles-Ezzell)\\$V_U + \tfrac{tK_dD(1+K_u)}{(1+K_d)(K_u-g)}$};
+\node[Faltm] (fcfedcf) at (7.9 ,-7.35)
+  {FCFE DCF\\$\sum\!\mathrm{FCFE}_t(1+K_e)^{-t}$};
+\node[Faltm] (ddmh)    at (11.1,-7.35)
+  {DDM / H-Model\\$\sum D_t(1+K_e)^{-t}$};
+\node[Faltm] (eva)     at (14.3,-7.35)
+  {EVA / Excess Returns\\$\mathrm{IC}+\mathrm{PV(EVA)}$};
+
+%% Alternative models — row 2
+\node[Faltm] (capst) at (1.5 ,-8.85)
+  {Optimal Cap.\ Structure\\$\arg\min_d\,\mathrm{WACC}(d)$};
+\node[Faltm] (mert)  at (4.7 ,-8.85)
+  {Merton (Distress)\\$E=VN(d_1)-De^{-rT}N(d_2)$};
+\node[Faltm] (bank)  at (7.9 ,-8.85)
+  {Bank FCFE\\$\mathrm{NI}(1-\Delta\mathrm{RWA}\cdot t_1/\mathrm{NI})$};
+\node[Faltm] (scen)  at (11.1,-8.85)
+  {Scenario Valuation\\$\sum P_i V_i\cdot P_{\mathrm{surv}}$};
+\node[Faltm] (relat) at (14.3,-8.85)
+  {Justified Multiples\\$P/E,\;P/BV,\;\mathrm{EV/EBITDA}$};
+
+\draw[Farrd] (proj.south) to[out=-90,in=90] (apvmm.north);
+\draw[Farrd] (proj.south) to[out=-90,in=90] (apvme.north);
+\draw[Farrd] (proj.south) to[out=-90,in=90] (fcfedcf.north);
+\draw[Farrd] (proj.south) to[out=-90,in=90] (ddmh.north);
+\draw[Farrd] (proj.south) to[out=-90,in=90] (eva.north);
+\draw[Farrd] (tv.south)   to[out=-90,in=90] (scen.north);
+\draw[Farrd] (wacc.south) to[out=-90,in=90] (capst.north);
+\draw[Farrd] (capm.south) to[out=-90,in=90] (relat.north);
+
+%% Legend
+\node[Finp,  minimum width=2.0cm, minimum height=0.48cm,
+     font=\scriptsize] at (17.8,-0.3) {Input};
+\node[Fcmp,  minimum width=2.0cm, minimum height=0.48cm,
+     font=\scriptsize] at (17.8,-0.9) {Computation};
+\node[Fres,  minimum width=2.0cm, minimum height=0.48cm,
+     font=\scriptsize] at (17.8,-1.5) {Output};
+\node[Faltm, minimum width=2.0cm, minimum height=0.48cm,
+     font=\scriptsize] at (17.8,-2.1) {Alt.\ model};
+\node[font=\scriptsize\bfseries]   at (17.8, 0.2) {Legend};
+\draw[Farr]  (16.9,-2.8) -- ++(1.8,0)
+  node[right,font=\scriptsize]{exact Rational};
+\draw[Farrd] (16.9,-3.3) -- ++(1.8,0)
+  node[right,font=\scriptsize]{double / shared};
+
+\end{tikzpicture}
+
+\vspace{0.5em}
+{\small\itshape
+\textbf{Exact:} \texttt{Rational} or \texttt{Currency::scale} --- no floating-point rounding.\quad
+\textbf{Double:} discount factors $(1+r)^{-t}$; PV sums.\quad
+Terminal value multiplier $\tfrac{1+g}{r-g}$ is exact \texttt{Rational} before discounting.}
 \end{center}
+\vspace*{\fill}
+\end{landscape}
 
 \section{Cross-Model Consistency}
 
@@ -2031,6 +2194,306 @@ D2/D    & $<0.50$ & 1200 \\
 \end{tabular}
 \end{table}
 \begin{center}\small Left: \emph{large cap}. \quad Right: \emph{small cap}.\end{center}
+
+\chapter{Mathematical Reference}
+\label{app:math}
+
+This appendix documents the exact formulas \emph{as implemented} in each
+module, with explicit notation for exact rational vs.\ floating-point steps.
+It serves two purposes: verifying that the library faithfully implements
+Damodaran's model, and enabling fine-grained debugging.
+
+\section{Arithmetic model}
+
+\begin{impl}{double used only for discount factors}
+Any expression of the form $(1+r)^{-t}$ is computed in \texttt{double}
+via \texttt{std::pow}.  All other operations use exact
+\texttt{ratmoney::Rational} or \texttt{Currency::scale}.
+PV sums and the final EV are accumulated in \texttt{double} and rounded
+back to integer \texttt{Currency} units at the end.
+\end{impl}
+
+\textbf{Shared terminal value multiplier.}
+For any Gordon-Growth step $\TV = X_N \cdot \tfrac{1+g}{r-g}$, the
+multiplier is an exact \texttt{Rational}:
+\begin{equation}
+  \TV_{\mathrm{mul}}
+  = \frac{(g_{\mathrm{den}}+g_{\mathrm{num}})\cdot r_{\mathrm{den}}}
+         {r_{\mathrm{num}}\cdot g_{\mathrm{den}}
+          - g_{\mathrm{num}}\cdot r_{\mathrm{den}}}
+  \label{eq:tv_mul_app}
+\end{equation}
+where $r$ is $\WACC$, $\Ku$, or $\Ke$ depending on the model.
+This is evaluated over \texttt{\_\_int128} before \texttt{Rational}
+reduction.
+
+\section{EBIT normalization (Chapter~\ref{ch:dataflow})}
+
+\textbf{Historical average:}
+\begin{equation}
+  \overline{\EBIT} = \frac{1}{n}\sum_{i=1}^{n}\EBIT_i
+  \qquad n\geq 2,\quad\text{exact}
+\end{equation}
+Accumulated via \texttt{Currency::add} then scaled by
+\texttt{Rational\{1,n\}}.
+
+\textbf{Normalized margin:}
+\begin{equation}
+  \EBIT = \text{revenue} \times m,\quad m\geq 0,\quad\text{exact}
+\end{equation}
+
+\section{Cost of capital (Chapter~\ref{sec:capm})}
+
+\textbf{CAPM:}
+\begin{equation}
+  \Ke = \Rf + \beta\cdot\ERP_{\mathrm{mature}} + \lambda\cdot\CRP
+  \quad\text{[exact]}
+\end{equation}
+
+\textbf{Hamada lever/unlever:}
+\begin{align}
+  \beta_L &= \beta_U\cdot[1+(1-t)\,D/E] \quad\text{[exact]}\\
+  \beta_U &= \beta_L\;/\;[1+(1-t)\,D/E] \quad\text{[exact]}
+\end{align}
+
+\begin{impl}{Bottom-up beta uses double for averaging}
+Steps 1--3 (unlever, average, re-lever) run in \texttt{double}.
+The result is rounded to 4 decimal places as \texttt{Rational\{n, 10000\}}.
+\end{impl}
+
+\textbf{Synthetic $\Kd$:}
+\begin{equation}
+  \Kd = \Rf + \mathrm{spread}(\mathrm{rating}(\mathrm{ICR}))
+  \quad\text{[exact;\ spread in bps as \texttt{Rational\{bps,10000\}}]}
+\end{equation}
+
+\textbf{WACC:}
+\begin{equation}
+  \WACC = \tfrac{E}{V}\Ke + \tfrac{D}{V}\Kd(1-t) \quad\text{[exact]}
+\end{equation}
+
+\section{FCFF and projection (Chapter~5)}
+
+\begin{equation}
+  \FCFF = \EBIT(1-t) + \DA - \mathrm{CapEx} - \Delta\NWC \quad\text{[exact]}
+\end{equation}
+\begin{equation}
+  F_t = F_{t-1}\cdot(1+g_k) \quad\text{[exact per step; }(1+g_k)
+        \text{ as \texttt{Rational}]}
+\end{equation}
+
+\section{DCF (Chapter~6)}
+
+\begin{align}
+  \mathrm{PV}(F_t) &= F_t\cdot(1+\WACC)^{-t} \quad\text{[double]}\\
+  \TV &= F_N\cdot\frac{1+g}{\WACC-g}
+       \quad\text{[exact mul., eq.~\eqref{eq:tv_mul_app}]}\\
+  \EV &= \textstyle\sum_t\mathrm{PV}(F_t)+\mathrm{PV}(\TV) \quad\text{[double]}\\
+  \text{Equity} &= \EV - D_{\mathrm{net}} \quad\text{[exact Currency]}\\
+  P &= \text{Equity}\;/\;n_{\mathrm{shares}} \quad\text{[exact]}
+\end{align}
+
+Guard: $\WACC > g$ enforced; returns \texttt{WACCLEGrowth} otherwise.
+
+\section{FCFE and equity DCF (Chapter~5)}
+
+\begin{equation}
+  \FCFE = \mathrm{NI} - (1-\delta)(\mathrm{CapEx}-\DA+\Delta\NWC)
+          + \Delta D_{\mathrm{net}} \quad\text{[exact]}
+\end{equation}
+Equity DCF is identical to Section~4 above but with $\Ke$ replacing $\WACC$
+and no net-debt subtraction.
+
+\section{DDM and H-Model (Chapter~6)}
+
+Multi-stage DDM reuses the FCFF projection engine.
+TV multiplier as eq.~\eqref{eq:tv_mul_app} with $r=\Ke$.
+
+\textbf{H-Model (fully exact):}
+\begin{equation}
+  P = D_0 \cdot
+      \frac{(1+g_l)+H(g_h-g_l)}{\Ke-g_l}
+  \quad\text{[all exact Rational; no double]}
+\end{equation}
+
+\section{Terminal value extensions (Chapter~7)}
+
+\textbf{Consistent TV (ROIC-based):}
+\begin{equation}
+  \TV = \NOPAT_s\cdot\frac{1-g_s/\ROIC_s}{\WACC-g_s} \quad\text{[exact]}
+\end{equation}
+
+\textbf{TV by multiple:}\quad $\TV = \mathrm{EBITDA}_N\times m$ \quad[exact]
+
+\section{APV (Chapter~8)}
+
+\textbf{Unlevered value} (shared by MM and ME):
+\begin{equation}
+  V_U = \textstyle\sum_t F_t(1+\Ku)^{-t}
+        + F_N\tfrac{1+g}{\Ku-g}(1+\Ku)^{-N} \quad\text{[double PV sums]}
+\end{equation}
+
+\textbf{MM tax shield:}
+\begin{equation}
+  \mathrm{PV(TS)}_{\mathrm{MM}} = t\cdot D \quad\text{[exact via \texttt{Currency::scale}]}
+\end{equation}
+
+\textbf{Miles-Ezzell tax shield:}
+\begin{equation}
+  \mathrm{PV(TS)}_{\mathrm{ME}}
+  = t\Kd D\cdot\frac{1+\Ku}{(1+\Kd)(\Ku-g)}
+  \quad\text{[exact Rational multiplier]}
+\end{equation}
+
+\section{EVA / Excess Returns (Chapter~9)}
+
+\textbf{Single-stage:}
+\begin{align}
+  V &= \IC\cdot\frac{\ROIC-g}{\WACC-g} \quad\text{[exact]}\\
+  \mathrm{PV(EVA)} &= \IC\cdot\frac{\ROIC-\WACC}{\WACC-g} \quad\text{[exact]}
+\end{align}
+
+\textbf{Multi-stage:} $\EVA_t = (\ROIC-\WACC)\cdot\IC_t$ [exact];
+$\mathrm{PV}(\EVA_t)=(1+\WACC)^{-t}$ [double].
+Terminal: $(\ROIC_s-\WACC)\cdot\IC_N/(\WACC-g_s)$ discounted [double].
+
+\section{Optimal capital structure (Chapter~11)}
+
+For $d_i = i/N$, the algorithm at each point applies (in order):
+Hamada [exact] $\to$ CAPM [exact] $\to$ synthetic $\Kd$ with ICR
+iteration [double loop, tolerance $10^{-9}$, $\leq 10$ steps] $\to$
+WACC [exact]. Minimum WACC search uses \texttt{double} comparison to
+avoid cross-\texttt{Rational} overflow.
+
+\section{Justified multiples (Chapter~10)}
+
+\begin{align}
+  g &= \ROE\cdot(1-\mathrm{payout}) \quad\text{[exact]}\\
+  P/E &= \mathrm{payout}/(\Ke-g) \quad\text{[exact]}\\
+  P/BV &= \ROE\cdot P/E \quad\text{[exact]}\\
+  EV/\mathrm{EBITDA} &= (1-t)(1-\RR)/(\WACC-g),\quad
+    \RR=g/\ROIC \quad\text{[exact]}
+\end{align}
+
+\section{Scenario valuation (Chapter~12)}
+
+For each scenario $i$: $V_i = \TV_i(1+\WACC_i)^{-T_i}$ [double,
+TV multiplier exact]. Weighted EV and survival adjustment are \texttt{double}.
+
+\section{Merton model (Chapter~12)}
+
+\begin{align}
+  d_1 &= \bigl[\ln(V/D)+(r+\sigma^2/2)T\bigr]\;/\;\sigma\sqrt{T}\\
+  d_2 &= d_1-\sigma\sqrt{T}\\
+  E &= V\mathcal{N}(d_1)-De^{-rT}\mathcal{N}(d_2)
+\end{align}
+$\mathcal{N}(x)=\tfrac{1}{2}\mathrm{erfc}(-x/\sqrt{2})$ via
+\texttt{std::erfc}. Entirely \texttt{double}.
+
+\begin{warning}
+$V$ and $\sigma_V$ are firm-asset parameters, not directly observable.
+Solving $\{E, \sigma_E\}$ from $\{E=\mathrm{BS}(V,\sigma_V),\;\sigma_E E
+= \mathcal{N}(d_1)\sigma_V V\}$ iteratively is \emph{not implemented};
+the caller supplies $(V, \sigma_V)$ directly.
+\end{warning}
+
+\section{Bank FCFE (Chapter~12)}
+
+\begin{align}
+  \mathrm{equity\_RR} &= \Delta\mathrm{RWA}\cdot t_1\;/\;\mathrm{NI}
+    \quad\text{[exact Rational]}\\
+  \FCFE_{\mathrm{bank}} &= \mathrm{NI}\cdot(1-\mathrm{equity\_RR})
+    \quad\text{[exact]}
+\end{align}
+
+\section{Precision summary}
+
+\begin{center}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Operation} & \textbf{Arithmetic} & \textbf{Note}\\
+\midrule
+CAPM, WACC, Hamada lever/unlever & exact \texttt{Rational} & \\
+FCFF, FCFE formulas & exact \texttt{Currency} & \\
+FCFF/IC projection $(1+g)^t$ & exact per step & accumulated\\
+TV multiplier $(1+g)/(r-g)$ & exact \texttt{Rational} & eq.~\eqref{eq:tv_mul_app}\\
+MM tax shield $t\cdot D$ & exact \texttt{Currency::scale} & \\
+ME tax shield multiplier & exact \texttt{Rational} & \\
+H-Model price & exact throughout & no \texttt{double}\\
+Justified multiples & exact \texttt{Rational} & \\
+ROIC, RR, ROE, $g$ & exact \texttt{Rational} & from \texttt{Currency} units\\
+Bank RR & exact \texttt{Rational} & \\
+EBIT normalization & exact \texttt{Currency} & \\
+\midrule
+PV sums $\sum F_t(1+r)^{-t}$ & \texttt{double} & irrational exponent\\
+PV(TV) $(1+r)^{-N}$ & \texttt{double} & \\
+Bottom-up beta (steps 1--3) & \texttt{double} & market data\\
+ICR iteration in cap.\ struct. & \texttt{double} & convergence loop\\
+WACC min-search comparison & \texttt{double} & avoids overflow\\
+Merton model (all) & \texttt{double} & Black-Scholes\\
+Scenario EV accumulation & \texttt{double} & \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Damodaran fidelity checklist}
+
+\begin{enumerate}[leftmargin=*, label=\textbf{\arabic*.}]
+
+\item \textbf{FCFF sign convention.}
+  CPV, selling expenses, G\&A, and other operating items must enter as
+  \emph{signed values} (negative for costs).  The pipeline feeds them
+  pre-signed; verify this before calling \texttt{compute\_fcff}.
+
+\item \textbf{D\&A proxy in the pipeline.}
+  \texttt{brapi\_fetch.py} approximates D\&A as
+  \texttt{incomeFromOperations}$-$\texttt{netIncome}, which includes
+  deferred taxes and other non-cash items.  For audit-grade analysis,
+  use the reported depreciation from the notes to the financial
+  statements.
+
+\item \textbf{CapEx proxy.}
+  CapEx $= |\text{operatingCF}-\text{freeCF}|$;
+  falls back to $|\text{investmentCF}|$ if zero.  Both are proxies.
+
+\item \textbf{H-Model: $H > 0$ required.}
+  The formula is undefined at $H=0$; the library returns
+  \texttt{InvalidInput}.
+
+\item \textbf{Consistent TV is not automatic.}
+  \texttt{compute\_dcf} uses the standard Gordon formula regardless of
+  ROIC.  Call \texttt{consistent\_terminal\_value} explicitly when you
+  need the ROIC-adjusted TV.
+
+\item \textbf{Bottom-up beta precision.}
+  Unlevering and re-levering run in \texttt{double}; result rounded to
+  4 decimal places.  Supply $\beta_L$ directly as \texttt{Rational}
+  for exact treatment.
+
+\item \textbf{Capital structure: circular $\Kd$.}
+  Iteration uses $\leq 10$ steps (tolerance $10^{-9}$).  For unusual
+  EBIT/FV ratios it may not converge; inspect \texttt{interest\_coverage}
+  in each \texttt{CapitalStructurePoint}.
+
+\item \textbf{Merton: asset parameters must be supplied.}
+  See item above.
+
+\item \textbf{Scenario valuation: flat terminal state.}
+  Each scenario has a single terminal FCFF; there are no intermediate
+  projected years.  Chain with \texttt{project\_fcff} first for richer
+  paths.
+
+\item \textbf{CDI-based cost of capital (Python pipeline only).}
+  The Python pipeline (\texttt{pipeline/prepare\_inputs.py}) uses a
+  CDI-based model:
+  $\Ku = \mathrm{CDI} + \pi_E\cdot E/V$,
+  $\Ke = \Ku + (\Ku-\Kd(1-t))\cdot D/E$,
+  $\WACC = E/V\cdot\Ke + D/V\cdot\Kd(1-t)$.
+  This is entirely in Python and is independent of the CAPM module
+  (Chapter~\ref{sec:capm}).
+
+\end{enumerate}
 
 \chapter{References and Further Reading}
 
