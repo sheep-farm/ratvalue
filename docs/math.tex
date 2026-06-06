@@ -1,0 +1,764 @@
+%% math.tex --- ratvalue: Mathematical Reference
+%% Compile: lualatex math.tex
+%% Purpose: exact formulas as implemented — for verification against Damodaran
+%%          and for fine-grained debugging.
+
+\documentclass[11pt, a4paper, oneside]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[colorlinks=true, linkcolor=blue!70!black,
+            citecolor=green!50!black, urlcolor=blue]{hyperref}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{tcolorbox}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{lmodern}
+\usepackage{mathtools}
+
+\tcbuselibrary{skins, breakable}
+
+\newtcolorbox{impl}[1]{
+  colback=gray!5, colframe=gray!50,
+  title={\textbf{Implementation note:} #1}, fonttitle=\small\bfseries,
+  breakable, left=4pt, right=4pt}
+
+\newtcolorbox{damodaran}[1]{
+  colback=blue!4, colframe=blue!40!black,
+  title={\textbf{Damodaran ref:} #1}, fonttitle=\small\bfseries,
+  breakable, left=4pt, right=4pt}
+
+%% Notation shortcuts
+\newcommand{\EBIT}{\mathrm{EBIT}}
+\newcommand{\FCFF}{\mathrm{FCFF}}
+\newcommand{\FCFE}{\mathrm{FCFE}}
+\newcommand{\WACC}{\mathrm{WACC}}
+\newcommand{\NOPAT}{\mathrm{NOPAT}}
+\newcommand{\ROIC}{\mathrm{ROIC}}
+\newcommand{\ROE}{\mathrm{ROE}}
+\newcommand{\ERP}{\mathrm{ERP}}
+\newcommand{\CRP}{\mathrm{CRP}}
+\newcommand{\EV}{\mathrm{EV}}
+\newcommand{\IC}{\mathrm{IC}}
+\newcommand{\TV}{\mathrm{TV}}
+\newcommand{\APV}{\mathrm{APV}}
+\newcommand{\EVA}{\mathrm{EVA}}
+\newcommand{\Ke}{K_e}
+\newcommand{\Kd}{K_d}
+\newcommand{\Ku}{K_u}
+\newcommand{\Rf}{R_f}
+\newcommand{\RR}{\mathrm{RR}}
+\newcommand{\NWC}{\mathrm{NWC}}
+\newcommand{\DA}{D\&A}
+\newcommand{\pn}[1]{\frac{#1_{\!.\,\mathrm{num}}}{#1_{\!.\,\mathrm{den}}}}
+\newcommand{\exact}{\;\text{[exact]}}
+\newcommand{\dbl}{\;\text{[double]}}
+
+\title{\textbf{ratvalue} --- Mathematical Reference\\[0.4em]
+\large Exact formulas as implemented, module by module}
+\author{}
+\date{June 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Arithmetic model}
+\label{sec:arith}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\textbf{Exact rational arithmetic.} All monetary values are stored as
+\texttt{ratmoney::Currency} (integer units in the smallest denomination,
+e.g.\ cents) with an exact \texttt{Rational\{num, den\}} rate.
+All dimensionless quantities (rates, ratios, growth rates) are stored as
+\texttt{ratmoney::Rational\{num, den\}} with $\gcd$ reduction over
+\texttt{\_\_int128}.
+
+\textbf{The only exception: discount factors.} Expressions of the form
+$(1+r)^{-t}$ are inherently irrational; they are computed in \texttt{double}
+and the result is rounded back to integer currency units.
+
+\begin{impl}{double used in every PV sum}
+Any line involving \texttt{std::pow(1.0 + r, -t)} is \texttt{double}.
+All multipliers applied to \texttt{Currency} values before discounting are
+first converted to \texttt{double} via \texttt{detail::to\_double()}.
+Terminal value multipliers such as $(1+g)/(\mathrm{rate}-g)$ are computed
+as exact \texttt{Rational} and then applied via \texttt{Currency::scale()}
+\emph{before} the discount step; the final PV discounting is \texttt{double}.
+\end{impl}
+
+\textbf{Terminal value multiplier (shared pattern).}
+For any Gordon-Growth terminal step $\TV = X_N \cdot \tfrac{1+g}{r-g}$,
+the multiplier is constructed as an exact \texttt{Rational}:
+\begin{align}
+  \TV\_\mathrm{mul} &= \frac{(g.\mathrm{den}+g.\mathrm{num})\cdot r.\mathrm{den}}
+                            {r.\mathrm{num}\cdot g.\mathrm{den}
+                             - g.\mathrm{num}\cdot r.\mathrm{den}}
+  \label{eq:tv_mul}
+\end{align}
+where $r$ is WACC, $\Ku$, or $\Ke$ depending on the model.
+This is exact over \texttt{\_\_int128} before \texttt{Rational} reduction.
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{EBIT normalization}
+\label{sec:normalize}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~8 and 18}
+Cyclical or non-recurring items distort a single-year EBIT.
+\end{damodaran}
+
+\textbf{Method 1 --- Historical average.}
+\begin{equation}
+  \overline{\EBIT} = \frac{1}{n}\sum_{i=1}^{n} \EBIT_i
+  \qquad n \geq 2 \exact
+\end{equation}
+Implemented as exact integer sum followed by
+\texttt{Currency::scale(\{1,n\})}.
+
+\textbf{Method 2 --- Normalized margin.}
+\begin{equation}
+  \EBIT = \text{revenue}_\text{current} \times m
+  \qquad m \geq 0 \exact
+\end{equation}
+Implemented via \texttt{Currency::scale(m)} where $m$ is a \texttt{Rational}.
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{CAPM --- cost of equity}
+\label{sec:capm}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~4; ``Equity Risk Premiums'', Damodaran~(2023)}
+\end{damodaran}
+
+\begin{equation}
+  \Ke = \Rf + \beta \cdot \ERP_\text{mature} + \lambda \cdot \CRP
+  \label{eq:capm}
+\end{equation}
+
+All four parameters and the result are \texttt{Rational}; fully exact.
+$\lambda = 1$ and $\CRP = 0$ by default (developed market).
+
+For Brazil: $\CRP \approx \text{sovereign spread} \times (\sigma_\text{equity}/\sigma_\text{bond})$.
+
+\begin{impl}{}
+Computed in three exact steps:
+$\beta \times \ERP_\text{mature}$,
+$\lambda \times \CRP$,
+$\Rf + \beta\ERP + \lambda\CRP$.
+\end{impl}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Beta --- Hamada equation and bottom-up beta}
+\label{sec:beta}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~4; Hamada~(1972)}
+\end{damodaran}
+
+\textbf{Lever / unlever.}
+\begin{align}
+  \beta_L &= \beta_U \cdot \bigl[1 + (1-t)\cdot D/E\bigr] \exact
+  \label{eq:lever}\\
+  \beta_U &= \beta_L \;\big/\; \bigl[1 + (1-t)\cdot D/E\bigr] \exact
+  \label{eq:unlever}
+\end{align}
+
+\textbf{Bottom-up beta.}
+\begin{enumerate}[leftmargin=*]
+  \item For each comparable $i$: $\beta_{U,i} = \beta_{L,i} / [1+(1-t_\text{sector})\cdot(D/E)_i]$. Computed in \texttt{double}.
+  \item $\bar\beta_U = \tfrac{1}{n}\sum_i \beta_{U,i}$ \dbl
+  \item Re-lever to target structure: $\beta_L = \bar\beta_U [1+(1-t_\text{target})\cdot(D/E)_\text{target}]$ \dbl
+  \item Result approximated to 4 decimal places as \texttt{Rational}:
+        $\beta_L \approx \lfloor \beta_L \times 10^4 \rceil / 10^4$.
+\end{enumerate}
+
+\begin{impl}{double in bottom-up}
+Steps 1--3 are entirely in \texttt{double} (market data; 4-decimal precision
+is sufficient). Only the final rounding back to \texttt{Rational} is exact.
+\end{impl}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Synthetic \texorpdfstring{$K_d$}{Kd}}
+\label{sec:kd}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{``Ratings, Interest Coverage Ratios and Default Spreads'', Damodaran~(Jan~2023)}
+\end{damodaran}
+
+\begin{equation}
+  \Kd = \Rf + \mathrm{spread}(\mathrm{rating}(\mathrm{ICR}))
+  \label{eq:kd}
+\end{equation}
+\begin{equation}
+  \mathrm{ICR} = \EBIT / \text{Interest expense}
+\end{equation}
+
+The spread is looked up from a 15-level credit rating table
+(Moody's/S\&P simplified scale).
+Two tables available: \texttt{large\_firm} (default) and
+\texttt{small\_firm} (stricter ICR thresholds).
+
+\begin{center}
+\small
+\begin{tabular}{lrr|lrr}
+\toprule
+Rating & ICR$_{\min}$ (large) & Spread (bps) &
+Rating & ICR$_{\min}$ (small) & Spread (bps)\\
+\midrule
+AAA   & 8.50 & 63   & AAA   & 12.50 & 63   \\
+AA    & 6.50 & 78   & AA    & 9.50  & 78   \\
+A+    & 5.50 & 98   & A+    & 7.50  & 98   \\
+A     & 4.25 & 108  & A     & 6.00  & 108  \\
+A$-$  & 3.00 & 122  & A$-$  & 4.50  & 122  \\
+BBB   & 2.50 & 156  & BBB   & 4.00  & 156  \\
+BB+   & 2.25 & 200  & BB+   & 3.50  & 200  \\
+BB    & 2.00 & 240  & BB    & 3.00  & 240  \\
+B+    & 1.75 & 350  & B+    & 2.50  & 350  \\
+B     & 1.50 & 375  & B     & 2.00  & 375  \\
+B$-$  & 1.25 & 500  & B$-$  & 1.50  & 500  \\
+CCC   & 0.80 & 600  & CCC   & 1.25  & 600  \\
+CC    & 0.65 & 700  & CC    & 0.80  & 700  \\
+C     & 0.20 & 800  & C     & 0.50  & 800  \\
+D     & $-\infty$ & 1200 & D & $-\infty$ & 1200\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{impl}{}
+The spread (in basis points) is stored as \texttt{Rational\{spread\_bps, 10000\}};
+$\Kd = \Rf + \text{spread}$ is exact.
+When Interest expense $= 0$: $\mathrm{ICR} = +\infty \Rightarrow$ AAA.
+\end{impl}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{WACC}
+\label{sec:wacc}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~8}
+\end{damodaran}
+
+\begin{equation}
+  \WACC = \frac{E}{V}\,\Ke + \frac{D}{V}\,\Kd\,(1-t)
+  \label{eq:wacc}
+\end{equation}
+
+All five inputs (\emph{equity weight}, \emph{debt weight}, $\Ke$, $\Kd$, $t$)
+and the result are \texttt{Rational}; fully exact.
+
+\begin{impl}{}
+$(1-t) = (t.\mathrm{den} - t.\mathrm{num})\,/\,t.\mathrm{den}$ (exact).
+Two intermediate terms: $D/V \cdot \Kd \cdot (1-t)$ and $E/V \cdot \Ke$,
+then summed.
+\end{impl}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{FCFF}
+\label{sec:fcff}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~11}
+\end{damodaran}
+
+\begin{equation}
+  \FCFF = \EBIT(1-t) + \DA - \mathrm{CapEx} - \Delta\NWC
+  \label{eq:fcff}
+\end{equation}
+
+All values are \texttt{Currency}; $(1-t)$ applied via
+\texttt{Currency::scale(\{t.den-t.num, t.den\})}. Fully exact.
+
+\textbf{Multi-stage projection.}
+For stage $k$ with growth rate $g_k$ and $n_k$ periods, starting from
+$\FCFF_0$:
+\begin{equation}
+  \FCFF_{t+1} = \FCFF_t \cdot (1+g_k), \quad t = 0,\ldots,n_k - 1
+  \label{eq:fcff_proj}
+\end{equation}
+Factor $(1+g_k)$ computed as \texttt{Rational\{g\_k.den + g\_k.num, g\_k.den\}};
+\texttt{Currency::scale} is exact. Each projected value is stored as an
+exact \texttt{Currency}.
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{DCF (FCFF-based)}
+\label{sec:dcf}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~12}
+\end{damodaran}
+
+\textbf{Two-stage model.}
+\begin{align}
+  \mathrm{PV}(\FCFF_t) &= \FCFF_t \cdot (1+\WACC)^{-t} \dbl
+  \label{eq:pv_fcff}\\[4pt]
+  \TV &= \FCFF_N \cdot \frac{1+g}{\WACC - g} \exact\;\text{(multiplier, eq.~\ref{eq:tv_mul})}
+  \label{eq:tv_dcf}\\[4pt]
+  \mathrm{PV}(\TV) &= \TV \cdot (1+\WACC)^{-N} \dbl
+  \label{eq:pv_tv}\\[6pt]
+  \EV &= \sum_{t=1}^{N}\mathrm{PV}(\FCFF_t) + \mathrm{PV}(\TV)
+  \label{eq:ev}\\[4pt]
+  \text{Equity} &= \EV - D_\text{net}
+  \label{eq:equity}\\[4pt]
+  P &= \text{Equity} / n_\text{shares}
+  \label{eq:price_dcf}
+\end{align}
+
+\textbf{Guard:} $\WACC > g$ is enforced before computation; returns
+\texttt{WACCLEGrowth} otherwise.
+
+\begin{impl}{}
+$\TV$ multiplier is exact (eq.~\ref{eq:tv_mul} with $r=\WACC$).
+All PV sums, PV(TV) and the final EV are accumulated in \texttt{double}
+and rounded to integer \texttt{Currency} units at the end.
+$D_\text{net}$ subtraction and per-share division use exact \texttt{Currency}
+and \texttt{Rational\{1,n\_shares\}}.
+\end{impl}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{FCFE and equity DCF}
+\label{sec:fcfe}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~13}
+\end{damodaran}
+
+\begin{equation}
+  \FCFE = \mathrm{NI} - (1-\delta)(\mathrm{CapEx} - \DA + \Delta\NWC)
+          + \Delta D_\text{net}
+  \label{eq:fcfe}
+\end{equation}
+where $\delta = D/V$ (debt ratio). Fully exact; $(1-\delta)$ computed as
+\texttt{Rational\{delta.den - delta.num, delta.den\}}.
+
+\textbf{Equity DCF.} Identical structure to the FCFF DCF
+(Section~\ref{sec:dcf}), with $\Ke$ replacing $\WACC$ and no
+net-debt subtraction:
+\begin{align}
+  \mathrm{PV}(\FCFE_t) &= \FCFE_t \cdot (1+\Ke)^{-t} \dbl\\
+  \TV_\text{FCFE} &= \FCFE_N \cdot \frac{1+g}{\Ke - g}
+    \exact\;\text{(eq.~\ref{eq:tv_mul} with } r=\Ke\text{)}\\
+  \text{Equity} &= \sum_t \mathrm{PV}(\FCFE_t) + \mathrm{PV}(\TV_\text{FCFE})\\
+  P &= \text{Equity} / n_\text{shares}
+\end{align}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{DDM --- multi-stage and H-Model}
+\label{sec:ddm}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~13--14}
+\end{damodaran}
+
+\textbf{Multi-stage DDM.} Dividends are projected using the same growth
+engine as FCFF (Section~\ref{sec:fcff}, eq.~\ref{eq:fcff_proj}).
+\begin{align}
+  P &= \sum_{t=1}^{N} D_t (1+\Ke)^{-t}
+       + D_N \cdot \frac{1+g_l}{\Ke - g_l} \cdot (1+\Ke)^{-N}
+\end{align}
+TV multiplier exact (eq.~\ref{eq:tv_mul} with $r=\Ke$); PV sums in
+\texttt{double}.
+
+\textbf{H-Model (closed form).}
+Growth declines linearly from $g_h$ to $g_l$ over $2H$ years:
+\begin{equation}
+  P = D_0 \cdot \frac{(1+g_l) + H\,(g_h - g_l)}{\Ke - g_l}
+  \label{eq:hmodel}
+\end{equation}
+
+\begin{impl}{fully exact}
+All four sub-expressions --- $(1+g_l)$, $H(g_h-g_l)$, numerator, $(\Ke-g_l)$ ---
+are computed as exact \texttt{Rational}. Final multiplier applied to $D_0$ via
+\texttt{Currency::scale}; no \texttt{double} anywhere.
+Constraint: $H > 0$ and $\Ke > g_l$.
+\end{impl}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Terminal value extensions}
+\label{sec:terminal}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~12; ``Consistent Terminal Value''}
+\end{damodaran}
+
+\textbf{Consistent terminal value (ROIC-based).}
+Derives the stable-period reinvestment rate from $g$ and $\ROIC_s$, then
+applies it to $\NOPAT_s$:
+\begin{align}
+  \RR_s &= g_s / \ROIC_s \exact\\
+  \TV &= \NOPAT_s \cdot \frac{1 - \RR_s}{\WACC - g_s} \exact
+  \label{eq:tv_consistent}
+\end{align}
+
+\begin{impl}{}
+$(1-\RR_s) = 1 - g_s/\ROIC_s$; $(\WACC - g_s)$; ratio of the two; all exact
+\texttt{Rational}. Applied to \texttt{Currency} via \texttt{scale()}.
+Requires $\ROIC_s > 0$ and $\WACC > g_s$.
+\end{impl}
+
+\textbf{Consistency check.} Returns three diagnostics:
+\begin{align*}
+  \mathrm{implied\_RR} &= g / \ROIC \exact\\
+  \mathrm{spread} &= \ROIC - \WACC \exact\\
+  \mathrm{value\_creating} &\Leftrightarrow \ROIC > \WACC\\
+  \mathrm{feasible} &\Leftrightarrow 0 \leq g/\ROIC \leq 1
+\end{align*}
+
+\textbf{TV by multiple.}
+\begin{equation}
+  \TV = \mathrm{EBITDA}_\text{terminal} \times \text{multiple}
+  \exact
+\end{equation}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{APV --- Modigliani-Miller and Miles-Ezzell}
+\label{sec:apv}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~15; Miles \& Ezzell~(1980)}
+\end{damodaran}
+
+\textbf{Unlevered firm value (shared by both variants).}
+\begin{align}
+  V_U &= \sum_{t=1}^{N} \FCFF_t (1+\Ku)^{-t}
+         + \FCFF_N \cdot \frac{1+g}{\Ku-g} \cdot (1+\Ku)^{-N}
+  \label{eq:vu}
+\end{align}
+TV multiplier exact (eq.~\ref{eq:tv_mul} with $r=\Ku$); discount sums in
+\texttt{double}.
+
+\textbf{MM tax shield (permanent debt).}
+\begin{align}
+  \mathrm{PV(TS)}_\text{MM} &= t \cdot D \exact
+  \label{eq:pvts_mm}\\
+  \APV &= V_U + \mathrm{PV(TS)} \label{eq:apv}\\
+  \text{Equity} &= \APV - D_\text{net}
+\end{align}
+
+\begin{impl}{exact Currency::scale}
+$\mathrm{PV(TS)}_\text{MM} = D.\text{scale}(t)$; no \texttt{double}.
+\end{impl}
+
+\textbf{Miles-Ezzell tax shield (constant $D/V$, rebalanced debt).}
+\begin{equation}
+  \mathrm{PV(TS)}_\text{ME} = t \cdot \Kd \cdot D \cdot
+    \frac{1+\Ku}{(1+\Kd)(\Ku - g)}
+  \label{eq:pvts_me}
+\end{equation}
+
+\begin{impl}{exact multiplier}
+The scalar multiplier
+$\mu = t\Kd(1+\Ku)\,/\,[(1+\Kd)(\Ku-g)]$
+is built step-by-step as exact \texttt{Rational}:
+$t\Kd$, $(1+\Ku)$, $(1+\Kd)$, $(\Ku-g)$, then
+$\mu = (t\Kd)(1+\Ku)\,/\,[(1+\Kd)(\Ku-g)]$.
+Applied to $D$ via \texttt{Currency::scale}; no \texttt{double}.
+\end{impl}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Excess Returns / EVA}
+\label{sec:eva}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~31; Stewart~(1991)}
+\end{damodaran}
+
+\textbf{Single-stage (closed form).}
+\begin{align}
+  V &= \IC \cdot \frac{\ROIC - g}{\WACC - g} \exact
+  \label{eq:er_single}\\
+  \mathrm{PV(EVA)} &= \IC \cdot \frac{\ROIC - \WACC}{\WACC - g} \exact
+\end{align}
+
+\textbf{Multi-stage.}
+$\IC_t$ is projected using the same growth engine as FCFF
+(eq.~\ref{eq:fcff_proj}).
+\begin{align}
+  \EVA_t &= (\ROIC - \WACC)\cdot \IC_t \exact\\
+  \mathrm{PV(EVA}_t) &= \EVA_t \cdot (1+\WACC)^{-t} \dbl\\
+  \mathrm{PV(EVA}_\infty) &= \frac{(\ROIC_s - \WACC)\cdot \IC_N}{\WACC - g_s}
+     \cdot (1+\WACC)^{-N} \dbl\\
+  V &= \IC_0 + \sum_t \mathrm{PV(EVA}_t) + \mathrm{PV(EVA}_\infty)
+\end{align}
+$(\ROIC-\WACC)$ exact \texttt{Rational}; $\IC_t$ exact \texttt{Currency};
+$\EVA_t$ via \texttt{Currency::scale}; discounting in \texttt{double}.
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Optimal capital structure}
+\label{sec:capstruct}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~15--16}
+\end{damodaran}
+
+For $i = 0, 1, \ldots, N-1$:
+\begin{align}
+  d_i &= i/N \quad \text{(debt ratio, \texttt{Rational\{i,N\}})}\\
+  D/E_i &= i/(N-i)
+  \quad \text{(\texttt{Rational\{i, N-i\}}, or 0 for }i=0)\\
+  \beta_{L,i} &= \beta_U [1+(1-t)\,D/E_i] \exact\;\text{(eq.~\ref{eq:lever})}\\
+  \Ke_i &= \Rf + \beta_{L,i}\,\ERP + \lambda\,\CRP \exact\;\text{(eq.~\ref{eq:capm})}\\
+  \Kd_i &= \Rf + \mathrm{spread}(\mathrm{ICR}_i) \exact
+\end{align}
+
+$\Kd_i$ is solved iteratively (circular dependency $\mathrm{ICR} \leftrightarrow \Kd$):
+\begin{equation}
+  \mathrm{ICR}_i^{(k)} = \frac{\EBIT}{d_i \cdot V \cdot \Kd_i^{(k)}},
+  \qquad
+  \Kd_i^{(k+1)} = \Rf + \mathrm{spread}\!\left(\mathrm{ICR}_i^{(k)}\right)
+\end{equation}
+Initial $\Kd^{(0)} = \Rf$; converges in $\leq 10$ iterations
+(tolerance $10^{-9}$).
+
+\begin{align}
+  \WACC_i &= (1-d_i)\,\Ke_i + d_i\,\Kd_i\,(1-t) \exact\;\text{(eq.~\ref{eq:wacc})}\\
+  i^* &= \arg\min_i \WACC_i \dbl\;\text{(comparison in \texttt{double})}
+\end{align}
+
+\begin{impl}{}
+The ICR iteration loop runs in \texttt{double}; the converged $\Kd$ value is
+the \texttt{Rational} returned by \texttt{synthetic\_cost\_of\_debt\_from\_icr}.
+WACC at each point is exact \texttt{Rational}; the minimum-search comparison
+uses \texttt{double} to avoid \texttt{\_\_int128} overflow.
+\end{impl}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Justified multiples}
+\label{sec:relative}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~17--20}
+\end{damodaran}
+
+All derived from the Gordon Growth Model.
+\begin{align}
+  g &= \ROE \cdot (1-\mathrm{payout}) \exact
+  \label{eq:g_equity}\\
+  P/E &= \frac{\mathrm{payout}}{\Ke - g} \exact
+  \label{eq:pe}\\
+  P/BV &= \ROE \cdot P/E \exact
+  \label{eq:pb}\\
+  \RR &= g / \ROIC \exact
+  \label{eq:rr}\\
+  EV/\mathrm{EBITDA} &= \frac{(1-t)(1-\RR)}{\WACC - g} \exact
+  \label{eq:ev_ebitda}
+\end{align}
+
+Guards: $\Ke > g$ and $\WACC > g$.
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Fundamental growth}
+\label{sec:growth}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~11 and 13}
+\end{damodaran}
+
+\begin{align}
+  \ROIC &= \NOPAT / \IC \exact\;\text{(via \texttt{Currency} units)}
+  \label{eq:roic}\\
+  \RR_\text{firm} &= (\mathrm{CapEx} - \DA + \Delta\NWC) / \NOPAT \exact
+  \label{eq:rr_firm}\\
+  g_\text{firm} &= \ROIC \cdot \RR_\text{firm} \exact
+  \label{eq:g_firm}\\[4pt]
+  \ROE &= \mathrm{NI} / \mathrm{BV} \exact
+  \label{eq:roe}\\
+  g_\text{equity} &= \ROE \cdot (1-\mathrm{payout}) \exact
+  \label{eq:g_equity2}
+\end{align}
+
+\begin{impl}{}
+$\ROIC$ and $\RR$ are \texttt{Rational} constructed from raw integer units
+of the \texttt{Currency} operands; no \texttt{double}.
+\end{impl}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Scenario valuation}
+\label{sec:startup}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~24; ``Valuing Young and Start-up Firms''}
+\end{damodaran}
+
+For each scenario $i$ with probability $P_i$, terminal FCFF $F_i$,
+growth $g_i$, cost of capital $\WACC_i$, and horizon $T_i$:
+\begin{align}
+  V_i &= \frac{F_i(1+g_i)}{\WACC_i - g_i} \cdot (1+\WACC_i)^{-T_i}
+  \label{eq:scenario_vi}\\
+  \mathbb{E}[\EV] &= \sum_i P_i\, V_i \dbl
+  \label{eq:ev_expected}\\
+  \EV &= \mathbb{E}[\EV]\cdot P_\text{surv}
+         + V_\text{fail}\cdot(1-P_\text{surv}) \dbl
+  \label{eq:ev_adjusted}\\
+  \text{Equity} &= \EV - D_\text{net}
+\end{align}
+
+TV multiplier exact (eq.~\ref{eq:tv_mul}); all $V_i$ and subsequent steps
+in \texttt{double}.
+
+Guard: $\sum_i P_i = 1$ (tolerance $10^{-6}$).
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Equity as option --- Merton model}
+\label{sec:distress}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~30; Merton~(1974)}
+\end{damodaran}
+
+Models equity as a European call option on firm assets with strike $= D$ (face value):
+\begin{align}
+  d_1 &= \frac{\ln(V/D) + (r + \tfrac{1}{2}\sigma^2)T}{\sigma\sqrt{T}}
+  \label{eq:d1}\\
+  d_2 &= d_1 - \sigma\sqrt{T}
+  \label{eq:d2}\\
+  E &= V\,\mathcal{N}(d_1) - D\,e^{-rT}\,\mathcal{N}(d_2)
+  \label{eq:merton_equity}\\
+  P(\text{default}) &= \mathcal{N}(-d_2)
+  \label{eq:pdefault}
+\end{align}
+
+where $\mathcal{N}(x) = \tfrac{1}{2}\,\mathrm{erfc}(-x/\sqrt{2})$
+(via \texttt{std::erfc}).
+
+All computation in \texttt{double}; no \texttt{Rational} arithmetic.
+
+\begin{impl}{inputs are assets, not equity}
+$V$ = asset value, $\sigma$ = asset volatility. These are not directly
+observable. Deriving them from observable equity market data
+$\{E_\text{mkt},\, \sigma_E\}$ requires solving the system
+$\{E = \text{BS}(V,\sigma); \, \sigma_E E = \mathcal{N}(d_1)\sigma V\}$
+iteratively --- this step is \emph{not} implemented; the caller must
+supply $(V, \sigma)$ directly.
+\end{impl}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Bank FCFE --- regulatory capital approach}
+\label{sec:bank}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{damodaran}{Investment Valuation, ch.~22--23 (Basel III)}
+\end{damodaran}
+
+Reinvestment for a bank = increase in regulatory capital required by
+risk-weighted asset growth (Basel III Tier~1):
+\begin{align}
+  \mathrm{equity\_RR} &= \frac{(\mathrm{RWA}_\text{proj} - \mathrm{RWA}_\text{cur})
+                               \cdot t_1}{\mathrm{NI}} \exact
+  \label{eq:bank_rr}\\
+  \FCFE_\text{bank} &= \mathrm{NI} \cdot (1 - \mathrm{equity\_RR}) \exact
+  \label{eq:bank_fcfe}
+\end{align}
+
+$\mathrm{equity\_RR}$ is a \texttt{Rational} built from the integer
+\texttt{Currency} units of $\Delta\mathrm{RWA}$ and NI.
+Subsequent DCF uses \texttt{compute\_fcfe\_dcf} (Section~\ref{sec:fcfe}).
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Arithmetic precision summary}
+\label{sec:precision}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{center}
+\small
+\begin{tabular}{lll}
+\toprule
+Operation & Arithmetic & Note\\
+\midrule
+CAPM, WACC, Hamada lever/unlever & exact \texttt{Rational} & \\
+FCFF, FCFE formulas & exact \texttt{Currency} & \\
+FCFF/IC projection $(1+g)^n$ & exact per step & accumulated multiplication\\
+TV multiplier $(1+g)/(r-g)$ & exact \texttt{Rational} & \\
+$t \times D$ (MM tax shield) & exact \texttt{Currency::scale} & \\
+ME tax shield multiplier & exact \texttt{Rational} & \\
+H-Model price & exact \texttt{Rational+Currency} & no \texttt{double}\\
+Justified multiples & exact \texttt{Rational} & \\
+ROIC, RR, ROE, $g$ & exact \texttt{Rational} & from \texttt{Currency} units\\
+Bank RR & exact \texttt{Rational} & from \texttt{Currency} units\\
+EBIT normalization & exact \texttt{Currency} & \\
+\midrule
+PV sums $\sum F_t(1+r)^{-t}$ & \texttt{double} & $(1+r)^{-t}$ irrational\\
+PV(TV) $(1+r)^{-N}$ & \texttt{double} & irrational\\
+Bottom-up beta (steps 1--3) & \texttt{double} & market data\\
+ICR iteration in cap.\ struct. & \texttt{double} & convergence loop\\
+WACC min-search comparison & \texttt{double} & avoid \texttt{int128} overflow\\
+Merton model (all) & \texttt{double} & Black-Scholes\\
+Scenario EV accumulation & \texttt{double} & weighted sum\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Damodaran fidelity checklist}
+\label{sec:checklist}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+The following items deviate from or extend the textbook treatment and
+should be verified when comparing model output to Damodaran's worked examples.
+
+\begin{enumerate}[leftmargin=*, label=\textbf{\arabic*.}]
+
+\item \textbf{FCFF sign convention.}
+  CPV, selling expenses, G\&A and other operating items enter as signed
+  values (negative for costs). The pipeline feeds them already signed;
+  verify that all cost fields carry the correct sign before passing to
+  \texttt{compute\_fcff}.
+
+\item \textbf{D\&A proxy in the pipeline.}
+  \texttt{brapi\_fetch.py} approximates D\&A as
+  \texttt{incomeFromOperations} $-$ \texttt{netIncome}; this includes
+  deferred taxes and other non-cash items. For precise debugging, compare
+  against the reported depreciation line from the notes to the financial
+  statements.
+
+\item \textbf{CapEx from cash flow statement.}
+  CapEx $= |\text{operatingCashFlow} - \text{freeCashFlow}|$ (brapi);
+  falls back to $|\text{investmentCashFlow}|$ if zero. Both are proxies.
+
+\item \textbf{H-Model requires $H > 0$.} The formula degenerates at $H = 0$;
+  the library returns \texttt{InvalidInput}.
+
+\item \textbf{TV consistency check does not prevent computation.}
+  \texttt{check\_terminal\_consistency} is informational only;
+  \texttt{compute\_dcf} uses the Gordon formula regardless of ROIC.
+  Use \texttt{consistent\_terminal\_value} explicitly if you want the
+  ROIC-adjusted TV.
+
+\item \textbf{Bottom-up beta precision.}
+  Unlevering and re-levering are in \texttt{double}; the result is rounded
+  to 4 decimal places. For an exact treatment, supply
+  $\beta_L$ directly as a \texttt{Rational}.
+
+\item \textbf{Capital structure: circular $K_d$.}
+  The iteration uses $\leq 10$ steps with tolerance $10^{-9}$.
+  For unusual EBIT/FV ratios it may not converge; inspect
+  \texttt{interest\_coverage} in each \texttt{CapitalStructurePoint}.
+
+\item \textbf{Merton model: asset value must be supplied.}
+  See Section~\ref{sec:distress}. The library does not solve for
+  $(V, \sigma_V)$ from $(E_\text{mkt}, \sigma_E)$.
+
+\item \textbf{Scenario valuation: flat terminal FCFF.}
+  Each scenario describes a single terminal state. There are no
+  intermediate projected years; $V_i$ is purely the discounted TV.
+  For richer scenario paths, chain with FCFF projection first.
+
+\item \textbf{WACC-based CDI model (pipeline only).}
+  The Python pipeline does \emph{not} use the standard CAPM implementation
+  above. Instead it uses a CDI-based model:
+  $\Ku = \text{CDI} + \pi_E \cdot E/V$,
+  $\Ke = \Ku + (\Ku - \Kd(1-t)) \cdot D/E$,
+  $\WACC = E/V \cdot \Ke + D/V \cdot \Kd(1-t)$.
+  This is defined entirely in \texttt{prepare\_inputs.py} and is independent
+  of the C++ modules in Sections~\ref{sec:capm}--\ref{sec:wacc}.
+
+\end{enumerate}
+
+\end{document}
