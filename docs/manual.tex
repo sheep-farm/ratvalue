@@ -61,12 +61,12 @@
   title={\textbf{Definition:} #1}, fonttitle=\small\bfseries,
   breakable}
 
-\newtcolorbox{atencao}{
+\newtcolorbox{warning}{
   colback=warningbg, colframe=orange!80!black,
   title={\textbf{Warning}}, fonttitle=\small\bfseries,
   breakable}
 
-\newtcolorbox{exemplo}[1]{
+\newtcolorbox{example}[1]{
   colback=green!5, colframe=green!50!black,
   title={\textbf{Example:} #1}, fonttitle=\small\bfseries,
   breakable}
@@ -377,14 +377,14 @@ Currency B(int64_t billions) {
 Currency ebit = B(145);   // BRL 145 billion
 \end{lstlisting}
 
-\begin{atencao}
+\begin{warning}
 Currency identity is determined by \texttt{CurrencyDescription}.
 Two \texttt{Currency} objects can only be added or compared if they share the
 \emph{same description}. The \texttt{rate} field is for \emph{currency
 conversion}, not for denomination identification.
 ratvalue validates currency consistency in all relevant functions and returns
 \texttt{ValuationError::CurrencyMismatch} on violation.
-\end{atencao}
+\end{warning}
 
 \section{types.h: Errors and Projection}
 
@@ -429,10 +429,10 @@ namespace ratvalue::detail {
 }
 \end{lstlisting}
 
-\begin{atencao}
+\begin{warning}
 \texttt{detail.h} is an \emph{internal} header and is not installed.
 Client code must not include it directly.
-\end{atencao}
+\end{warning}
 
 %% ════════════════════════════════════════════════════════════════════════════════
 \chapter{Earnings Normalization}
@@ -478,7 +478,7 @@ expected<Currency, ValuationError>
 normalize_ebit(const NormalizationInputs& inputs);
 \end{lstlisting}
 
-\begin{exemplo}{Petrobras --- historical cycle average}
+\begin{example}{Petrobras --- historical cycle average}
 \begin{lstlisting}[style=cpp, numbers=none]
 auto result = normalize_ebit(NormalizationInputs{
     .method = NormalizationMethod::HistoricalAverage,
@@ -489,7 +489,7 @@ auto result = normalize_ebit(NormalizationInputs{
 });
 // result->units() / 1e11 = BRL 126B (average)
 \end{lstlisting}
-\end{exemplo}
+\end{example}
 
 \section{Remarks}
 
@@ -616,12 +616,12 @@ expected<Rational, ValuationError>
 bottom_up_beta(const BottomUpBetaInputs& inputs);
 \end{lstlisting}
 
-\begin{atencao}
+\begin{warning}
 The average of $\beta_U$ inside \texttt{bottom\_up\_beta} is computed in
 \texttt{double}, as market betas are statistical estimates without exact
 precision. The final re-levered result is returned as \texttt{Rational}
 with 4 decimal places.
-\end{atencao}
+\end{warning}
 
 \section{Synthetic Cost of Debt}
 \label{sec:kd_sint}
@@ -807,11 +807,11 @@ Leverage & Captured in WACC & Captured in FCFE \\
 \end{tabular}
 \end{table}
 
-\begin{atencao}
+\begin{warning}
 FCFF and FCFE yield the same equity value when inputs are consistent
 (same implicit capital structure). Discrepancies signal inconsistent
 assumptions, not code errors.
-\end{atencao}
+\end{warning}
 
 \subsection{API}
 
@@ -928,7 +928,7 @@ Damodaran's standard DCF divides the horizon into two stages:
 
 \subsection{Implementation: double for Discounting, Rational for TV}
 
-\begin{atencao}
+\begin{warning}
 The discount factor $(1+r)^{-t}$ is irrational for $t > 1$ in most cases.
 ratvalue uses \texttt{double} \emph{only} for exponentiation; all other
 operations are exact rationals. In particular, the TV multiplier is an exact
@@ -938,7 +938,7 @@ operations are exact rationals. In particular, the TV multiplier is an exact
   = \frac{(g_{\text{den}} + g_{\text{num}}) \cdot \WACC_{\text{den}}}
          {\WACC_{\text{num}} \cdot g_{\text{den}} - g_{\text{num}} \cdot \WACC_{\text{den}}}
 \]
-\end{atencao}
+\end{warning}
 
 \subsection{API}
 
@@ -1062,11 +1062,11 @@ expected<Currency, ValuationError>
 consistent_terminal_value(const ConsistentTVInputs& inputs);
 \end{lstlisting}
 
-\begin{atencao}
+\begin{warning}
 When $\ROIC_{\text{stable}} < \WACC$, the TV is still positive but the firm
 destroys value in the perpetuity (\texttt{value\_creating = false}).
 This is economically valid; the model does not reject this case.
-\end{atencao}
+\end{warning}
 
 \section{TV by Multiple}
 
@@ -1154,7 +1154,7 @@ expected<APVResult, ValuationError>
 compute_apv_miles_ezzell(const APVMilesEzzellInputs& inputs);
 \end{lstlisting}
 
-\begin{exemplo}{MM vs.\ ME comparison (Petrobras)}
+\begin{example}{MM vs.\ ME comparison (Petrobras)}
 $D = \text{R\$}250\text{B}$, $t = 34\%$, $\Kd = 5.78\%$,
 $\Ku \approx 11.57\%$, $g = 1.5\%$:
 \[
@@ -1166,7 +1166,7 @@ $\Ku \approx 11.57\%$, $g = 1.5\%$:
   \approx \text{R\$}51\text{B}
 \]
 MM overstates the tax shield benefit by $\approx 40\%$ in this case.
-\end{exemplo}
+\end{example}
 
 %% ════════════════════════════════════════════════════════════════════════════════
 \chapter{EVA and Excess Returns}
@@ -1278,7 +1278,7 @@ expected<JustifiedMultiples, ValuationError>
 compute_justified_multiples(const JustifiedMultiplesInputs& inputs);
 \end{lstlisting}
 
-\begin{exemplo}{Petrobras --- justified multiples (normalized ROE = 15\%)}
+\begin{example}{Petrobras --- justified multiples (normalized ROE = 15\%)}
 With $\Ke = 11.57\%$, $\WACC = 8.99\%$, $\ROE_{\text{norm}} = 15\%$,
 payout $= 60\%$, $\ROIC = 16.63\%$, $t = 34\%$:
 \[
@@ -1291,7 +1291,7 @@ payout $= 60\%$, $\ROIC = 16.63\%$, $t = 34\%$:
   \qquad
   EV/EBITDA = 14.1\times
 \]
-\end{exemplo}
+\end{example}
 
 %% ════════════════════════════════════════════════════════════════════════════════
 \chapter{Optimal Capital Structure}
@@ -1352,13 +1352,13 @@ expected<OptimalCapitalStructureResult, ValuationError>
 optimal_capital_structure(const OptimalCapitalStructureInputs& inputs);
 \end{lstlisting}
 
-\begin{atencao}
+\begin{warning}
 The Damodaran ICR model captures only the \emph{default cost via spread}.
 Indirect costs of financial distress (customer loss, suboptimal hiring,
 management distraction) are not modeled. For firms with high EBIT relative
 to firm value, the algorithm may indicate high leverage ratios that would be
 impractical in reality.
-\end{atencao}
+\end{warning}
 
 %% ════════════════════════════════════════════════════════════════════════════════
 \chapter{Specialized Models}
@@ -1428,12 +1428,12 @@ assets, with a strike equal to the face value of debt (Merton, 1974):
 The \emph{risk-neutral} probability of default is $\mathcal{N}(-d_2)$.
 The distance to default $d_2$ is the primary indicator of financial health.
 
-\begin{atencao}
+\begin{warning}
 $V$ and $\sigma_V$ are firm asset parameters, \emph{not directly observable}.
 The iterative estimation (solving $\{E, \sigma_E\}$ from the nonlinear system
 $E = \text{BS}(V, \sigma_V)$ and $\sigma_E E = \mathcal{N}(d_1) \sigma_V V$)
 is not implemented; the user provides $V$ and $\sigma_V$ directly.
-\end{atencao}
+\end{warning}
 
 \subsection{API}
 
@@ -1588,7 +1588,7 @@ Market price (2024)      & R\$38--42 & --- \\
 \end{tabular}
 \end{table}
 
-\begin{atencao}
+\begin{warning}
 The divergence across models is \emph{expected and informative}:
 \begin{itemize}
   \item \textbf{FCFE} uses 2023 net income (R\$124B) without normalization ---
@@ -1600,7 +1600,7 @@ The divergence across models is \emph{expected and informative}:
   \item \textbf{DCF/FCFF normalized} (R\$39.88) is the most consistent with
         the market price because it uses the mid-cycle average EBIT.
 \end{itemize}
-\end{atencao}
+\end{warning}
 
 \section{Itaú Unibanco (ITUB4)}
 
@@ -1685,12 +1685,12 @@ complete ratvalue API to Python without rewriting any logic. All 18 modules
 are covered. The C++ library performs every calculation; Python is only the
 calling layer.
 
-\begin{atencao}
+\begin{warning}
 The Python boundary converts \texttt{ratmoney::Currency} and
 \texttt{ratmoney::Rational} to and from \texttt{double}. This introduces
 floating-point rounding at the interface, but all internal arithmetic
 remains exact. For production-grade auditing use the C++ API directly.
-\end{atencao}
+\end{warning}
 
 \section{Installation}
 
