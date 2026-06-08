@@ -15,28 +15,28 @@ struct PyFCFEDCFResult {
 void bind_fcfe(nb::module_& m) {
     nb::class_<PyFCFEDCFResult>(m, "FCFEDCFResult")
         .def_ro("equity_value",      &PyFCFEDCFResult::equity_value,
-                "Equity value in BRL billions")
+                "Equity value in major units")
         .def_ro("price_per_share",   &PyFCFEDCFResult::price_per_share,
-                "Intrinsic price per share in BRL")
+                "Intrinsic price per share")
         .def_ro("pv_fcfe",           &PyFCFEDCFResult::pv_fcfe,
-                "PV of explicit FCFEs in BRL billions")
+                "PV of explicit FCFEs in major units")
         .def_ro("pv_terminal_value", &PyFCFEDCFResult::pv_terminal_value,
-                "PV of terminal value in BRL billions")
+                "PV of terminal value in major units")
         .def("__repr__", [](const PyFCFEDCFResult& r) {
             return "FCFEDCFResult(equity=" + std::to_string(r.equity_value)
-                 + "B, price=" + std::to_string(r.price_per_share) + ")";
+                 + ", price=" + std::to_string(r.price_per_share) + ")";
         });
 
     m.def("compute_fcfe",
-        [](double ni_b, double debt_ratio, double capex_b,
-           double da_b, double delta_nwc_b, double new_debt_b) -> double {
+        [](nb::object ni, double debt_ratio, nb::object capex,
+           nb::object da, nb::object delta_nwc, nb::object new_debt) -> double {
             return c2b(unwrap(ratvalue::compute_fcfe({
-                .net_income                = b2c(ni_b),
+                .net_income                = obj2c(ni),
                 .debt_ratio                = d2r(debt_ratio),
-                .capex                     = b2c(capex_b),
-                .depreciation_amortization = b2c(da_b),
-                .delta_nwc                 = b2c(delta_nwc_b),
-                .net_new_debt              = b2c(new_debt_b),
+                .capex                     = obj2c(capex),
+                .depreciation_amortization = obj2c(da),
+                .delta_nwc                 = obj2c(delta_nwc),
+                .net_new_debt              = obj2c(new_debt),
             })));
         },
         nb::arg("net_income_b"), nb::arg("debt_ratio"),
@@ -47,15 +47,15 @@ Compute FCFE.
 
   FCFE = NI - (1-delta)*(CapEx - D&A + dNWC) + net_new_debt
 
-All monetary arguments in BRL billions.
+Monetary arguments accept float (major units) or int (exact minor units).
 )");
 
     m.def("compute_fcfe_dcf",
-        [](std::vector<double> fcfes_b, double ke,
+        [](std::vector<nb::object> fcfes, double ke,
            double g, int64_t shares) -> PyFCFEDCFResult {
             std::vector<ratmoney::Currency> cflows;
-            cflows.reserve(fcfes_b.size());
-            for (double v : fcfes_b) cflows.push_back(b2c(v));
+            cflows.reserve(fcfes.size());
+            for (auto& v : fcfes) cflows.push_back(obj2c(v));
             auto r = unwrap(ratvalue::compute_fcfe_dcf({
                 .projected_fcfe     = cflows,
                 .cost_of_equity     = d2r(ke),
@@ -65,7 +65,7 @@ All monetary arguments in BRL billions.
             return {c2b(r.equity_value), c2r(r.equity_value_per_share),
                     c2b(r.pv_fcfe),      c2b(r.pv_terminal_value)};
         },
-        nb::arg("projected_fcfe_billions"), nb::arg("cost_of_equity"),
+        nb::arg("projected_fcfe"), nb::arg("cost_of_equity"),
         nb::arg("terminal_growth"), nb::arg("shares"),
         "DCF from equity perspective: discount FCFEs at cost of equity.");
 }

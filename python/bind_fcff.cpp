@@ -8,14 +8,14 @@ using namespace py_helpers;
 
 void bind_fcff(nb::module_& m) {
     m.def("compute_fcff",
-        [](double ebit_b, double tax, double da_b,
-           double capex_b, double delta_nwc_b) -> double {
+        [](nb::object ebit, double tax, nb::object da,
+           nb::object capex, nb::object delta_nwc) -> double {
             return c2b(unwrap(ratvalue::compute_fcff({
-                .ebit                       = b2c(ebit_b),
+                .ebit                       = obj2c(ebit),
                 .tax_rate                   = d2r(tax),
-                .depreciation_amortization  = b2c(da_b),
-                .capex                      = b2c(capex_b),
-                .delta_nwc                  = b2c(delta_nwc_b),
+                .depreciation_amortization  = obj2c(da),
+                .capex                      = obj2c(capex),
+                .delta_nwc                  = obj2c(delta_nwc),
             })));
         },
         nb::arg("ebit_b"), nb::arg("tax_rate"),
@@ -25,18 +25,17 @@ Compute FCFF.
 
   FCFF = EBIT*(1-t) + D&A - CapEx - delta_NWC
 
-All monetary arguments in BRL billions.
+Monetary arguments accept float (major units, e.g. billions) or int (exact minor units).
 )");
 
-    // stages: list of (growth_rate, periods) pairs
     m.def("project_fcff",
-        [](double base_b, std::vector<std::pair<double,int>> stages) {
+        [](nb::object base, std::vector<std::pair<double,int>> stages) {
             std::vector<ratvalue::ProjectionStage> ps;
             ps.reserve(stages.size());
             for (auto [g, n] : stages)
                 ps.push_back({d2r(g), n});
             auto result = unwrap(ratvalue::project_fcff({
-                .base_fcff = b2c(base_b),
+                .base_fcff = obj2c(base),
                 .stages    = ps,
             }));
             std::vector<double> out;
@@ -51,13 +50,12 @@ Project FCFF across one or more growth stages.
 
 Parameters
 ----------
-base_fcff_billions : FCFF in year 0 (BRL billions)
+base_fcff_billions : FCFF in year 0 — float (billions) or int (exact minor units)
 stages             : list of (growth_rate, periods) tuples
-                     e.g. [(0.03, 5)] for 3% growth over 5 years
 
 Returns
 -------
-list[float] : projected FCFFs in BRL billions (years 1..N)
+list[float] : projected FCFFs in billions (years 1..N)
 
 Example
 -------

@@ -16,19 +16,19 @@ struct PyAPVResult {
 void bind_apv(nb::module_& m) {
     nb::class_<PyAPVResult>(m, "APVResult")
         .def_ro("unlevered_firm_value", &PyAPVResult::unlevered_firm_value,
-                "PV of FCFFs discounted at Ku (BRL billions)")
+                "PV of FCFFs discounted at Ku (major units)")
         .def_ro("pv_tax_shield",        &PyAPVResult::pv_tax_shield,
-                "Present value of tax shields (BRL billions)")
+                "Present value of tax shields (major units)")
         .def_ro("apv",                  &PyAPVResult::apv,
-                "Adjusted present value = unlevered + tax shield (BRL billions)")
+                "Adjusted present value = unlevered + tax shield (major units)")
         .def_ro("equity_value",         &PyAPVResult::equity_value,
-                "APV minus net debt (BRL billions)")
+                "APV minus net debt (major units)")
         .def_ro("price_per_share",      &PyAPVResult::price_per_share,
-                "Intrinsic price per share in BRL")
+                "Intrinsic price per share")
         .def("__repr__", [](const PyAPVResult& r) {
             return "APVResult(apv=" + std::to_string(r.apv)
-                 + "B, ts=" + std::to_string(r.pv_tax_shield)
-                 + "B, price=" + std::to_string(r.price_per_share) + ")";
+                 + ", ts=" + std::to_string(r.pv_tax_shield)
+                 + ", price=" + std::to_string(r.price_per_share) + ")";
         });
 
     auto conv = [](const ratvalue::APVResult& r) -> PyAPVResult {
@@ -38,52 +38,52 @@ void bind_apv(nb::module_& m) {
     };
 
     m.def("compute_apv",
-        [conv](std::vector<double> fcffs_b, double g, double ku,
-               double debt_b, double tax, double net_debt_b,
+        [conv](std::vector<nb::object> fcffs, double g, double ku,
+               nb::object debt, double tax, nb::object net_debt,
                int64_t shares) -> PyAPVResult {
             std::vector<ratmoney::Currency> cflows;
-            cflows.reserve(fcffs_b.size());
-            for (double v : fcffs_b) cflows.push_back(b2c(v));
+            cflows.reserve(fcffs.size());
+            for (auto& v : fcffs) cflows.push_back(obj2c(v));
             return conv(unwrap(ratvalue::compute_apv({
                 .projected_fcff            = cflows,
                 .terminal_growth           = d2r(g),
                 .unlevered_cost_of_equity  = d2r(ku),
-                .debt_market_value         = b2c(debt_b),
+                .debt_market_value         = obj2c(debt),
                 .tax_rate                  = d2r(tax),
-                .net_debt                  = b2c(net_debt_b),
+                .net_debt                  = obj2c(net_debt),
                 .shares_outstanding        = shares,
             })));
         },
-        nb::arg("projected_fcff_billions"), nb::arg("terminal_growth"),
-        nb::arg("ku"), nb::arg("debt_billions"), nb::arg("tax_rate"),
-        nb::arg("net_debt_billions"), nb::arg("shares"),
+        nb::arg("projected_fcff"), nb::arg("terminal_growth"),
+        nb::arg("ku"), nb::arg("debt"), nb::arg("tax_rate"),
+        nb::arg("net_debt"), nb::arg("shares"),
         R"(
 APV using Modigliani-Miller tax shield: PV(TS) = t * D.
 Assumes debt is permanent.
 )");
 
     m.def("compute_apv_miles_ezzell",
-        [conv](std::vector<double> fcffs_b, double g, double ku, double kd,
-               double debt_b, double tax, double net_debt_b,
+        [conv](std::vector<nb::object> fcffs, double g, double ku, double kd,
+               nb::object debt, double tax, nb::object net_debt,
                int64_t shares) -> PyAPVResult {
             std::vector<ratmoney::Currency> cflows;
-            cflows.reserve(fcffs_b.size());
-            for (double v : fcffs_b) cflows.push_back(b2c(v));
+            cflows.reserve(fcffs.size());
+            for (auto& v : fcffs) cflows.push_back(obj2c(v));
             return conv(unwrap(ratvalue::compute_apv_miles_ezzell({
                 .projected_fcff            = cflows,
                 .terminal_growth           = d2r(g),
                 .unlevered_cost_of_equity  = d2r(ku),
                 .cost_of_debt              = d2r(kd),
-                .debt_market_value         = b2c(debt_b),
+                .debt_market_value         = obj2c(debt),
                 .tax_rate                  = d2r(tax),
-                .net_debt                  = b2c(net_debt_b),
+                .net_debt                  = obj2c(net_debt),
                 .shares_outstanding        = shares,
             })));
         },
-        nb::arg("projected_fcff_billions"), nb::arg("terminal_growth"),
+        nb::arg("projected_fcff"), nb::arg("terminal_growth"),
         nb::arg("ku"), nb::arg("kd"),
-        nb::arg("debt_billions"), nb::arg("tax_rate"),
-        nb::arg("net_debt_billions"), nb::arg("shares"),
+        nb::arg("debt"), nb::arg("tax_rate"),
+        nb::arg("net_debt"), nb::arg("shares"),
         R"(
 APV using Miles-Ezzell tax shield: assumes firm rebalances D/V each period.
 

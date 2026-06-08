@@ -5,7 +5,6 @@
 namespace nb = nanobind;
 using namespace py_helpers;
 
-// Python-friendly result struct
 struct PySyntheticKd {
     double      cost_of_debt;
     double      default_spread;
@@ -31,15 +30,15 @@ void bind_kd(nb::module_& m) {
     };
 
     m.def("synthetic_cost_of_debt",
-        [conv](double ebit_b, double interest_b, double rf, bool large_firm) {
+        [conv](nb::object ebit, nb::object interest, double rf, bool large_firm) {
             return conv(unwrap(ratvalue::synthetic_cost_of_debt({
-                .ebit             = b2c(ebit_b),
-                .interest_expense = b2c(interest_b),
+                .ebit             = obj2c(ebit),
+                .interest_expense = obj2c(interest),
                 .risk_free_rate   = d2r(rf),
                 .large_firm       = large_firm,
             })));
         },
-        nb::arg("ebit_billions"), nb::arg("interest_billions"),
+        nb::arg("ebit"), nb::arg("interest"),
         nb::arg("rf"), nb::arg("large_firm") = true,
         R"(
 Synthetic cost of debt via ICR → rating → spread (Damodaran 2023 tables).
@@ -48,10 +47,10 @@ Synthetic cost of debt via ICR → rating → spread (Damodaran 2023 tables).
 
 Parameters
 ----------
-ebit_billions     : EBIT in BRL billions
-interest_billions : interest expense in BRL billions
-rf                : risk-free rate
-large_firm        : use large-cap ICR thresholds (default True)
+ebit     : EBIT — float (major units) or int (exact minor units)
+interest : interest expense — float (major units) or int (exact minor units)
+rf       : risk-free rate
+large_firm : use large-cap ICR thresholds (default True)
 )");
 
     m.def("synthetic_cost_of_debt_from_icr",

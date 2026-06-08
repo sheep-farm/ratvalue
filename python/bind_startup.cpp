@@ -17,42 +17,44 @@ struct PyStartupResult {
 void bind_startup(nb::module_& m) {
     nb::class_<PyStartupResult>(m, "StartupValuationResult")
         .def_ro("enterprise_value", &PyStartupResult::enterprise_value,
-                "Probability-weighted EV in BRL billions")
+                "Probability-weighted EV in major units")
         .def_ro("equity_value",     &PyStartupResult::equity_value,
-                "Equity value in BRL billions")
+                "Equity value in major units")
         .def_ro("price_per_share",  &PyStartupResult::price_per_share,
-                "Price per share in BRL")
+                "Price per share")
         .def_ro("scenario_evs",     &PyStartupResult::scenario_evs,
-                "List of (scenario_name, ev_billions) per scenario")
+                "List of (scenario_name, ev) per scenario")
         .def("__repr__", [](const PyStartupResult& r) {
             return "StartupValuationResult(ev=" + std::to_string(r.enterprise_value)
-                 + "B, price=" + std::to_string(r.price_per_share) + ")";
+                 + ", price=" + std::to_string(r.price_per_share) + ")";
         });
 
-    // Each scenario: dict with keys name, probability, terminal_fcff_b,
-    //                terminal_growth, wacc, years_to_terminal
+    // Each scenario dict: name, probability, terminal_fcff, terminal_growth, wacc,
+    //                     years_to_terminal.
+    // terminal_fcff accepts float (major units) or int (exact minor units).
     m.def("startup_valuation",
         [](std::vector<nb::dict> scenarios_py,
-           double survival_prob, double failure_value_b,
-           double net_debt_b, int64_t shares) -> PyStartupResult {
+           double survival_prob, nb::object failure_value,
+           nb::object net_debt, int64_t shares) -> PyStartupResult {
             std::vector<ratvalue::ValuationScenario> sc;
             sc.reserve(scenarios_py.size());
             for (auto& d : scenarios_py) {
+                nb::object tfcff = d["terminal_fcff"];
                 sc.push_back({
-                    .name             = nb::cast<std::string>(d["name"]),
-                    .probability      = d2r(nb::cast<double>(d["probability"])),
-                    .terminal_fcff    = b2c(nb::cast<double>(d["terminal_fcff_b"])),
-                    .terminal_growth  = d2r(nb::cast<double>(d["terminal_growth"])),
-                    .wacc             = d2r(nb::cast<double>(d["wacc"])),
+                    .name              = nb::cast<std::string>(d["name"]),
+                    .probability       = d2r(nb::cast<double>(d["probability"])),
+                    .terminal_fcff     = obj2c(tfcff),
+                    .terminal_growth   = d2r(nb::cast<double>(d["terminal_growth"])),
+                    .wacc              = d2r(nb::cast<double>(d["wacc"])),
                     .years_to_terminal = nb::cast<int>(d["years_to_terminal"]),
                 });
             }
             auto r = unwrap(ratvalue::startup_valuation({
-                .scenarios           = sc,
+                .scenarios            = sc,
                 .survival_probability = d2r(survival_prob),
-                .failure_value       = b2c(failure_value_b),
-                .net_debt            = b2c(net_debt_b),
-                .shares_outstanding  = shares,
+                .failure_value        = obj2c(failure_value),
+                .net_debt             = obj2c(net_debt),
+                .shares_outstanding   = shares,
             }));
             PyStartupResult out;
             out.enterprise_value = c2b(r.enterprise_value);
@@ -64,8 +66,8 @@ void bind_startup(nb::module_& m) {
         },
         nb::arg("scenarios"),
         nb::arg("survival_probability"),
-        nb::arg("failure_value_billions"),
-        nb::arg("net_debt_billions"),
+        nb::arg("failure_value"),
+        nb::arg("net_debt"),
         nb::arg("shares"),
         R"(
 Scenario-based valuation with survival probability (Damodaran Dark Side ch. 10-12).
@@ -77,23 +79,23 @@ Parameters
 scenarios : list of dicts, each with keys:
     name              : str
     probability       : float (must sum to 1.0)
-    terminal_fcff_b   : float, terminal FCFF in BRL billions
+    terminal_fcff     : float (major units) or int (exact minor units)
     terminal_growth   : float
     wacc              : float
     years_to_terminal : int
-survival_probability    : P(firm reaches terminal stage)
-failure_value_billions  : liquidation value in BRL billions
-net_debt_billions       : to subtract from EV
-shares                  : shares outstanding
+survival_probability : P(firm reaches terminal stage)
+failure_value        : liquidation value — float (major units) or int (exact minor units)
+net_debt             : float (major units) or int (exact minor units)
+shares               : shares outstanding
 
 Example
 -------
 >>> scenarios = [
-...     {"name":"Bull","probability":0.35,"terminal_fcff_b":90,
+...     {"name":"Bull","probability":0.35,"terminal_fcff":90,
 ...      "terminal_growth":0.02,"wacc":0.085,"years_to_terminal":5},
-...     {"name":"Base","probability":0.45,"terminal_fcff_b":60,
+...     {"name":"Base","probability":0.45,"terminal_fcff":60,
 ...      "terminal_growth":0.015,"wacc":0.090,"years_to_terminal":5},
-...     {"name":"Bear","probability":0.20,"terminal_fcff_b":30,
+...     {"name":"Bear","probability":0.20,"terminal_fcff":30,
 ...      "terminal_growth":0.010,"wacc":0.100,"years_to_terminal":5},
 ... ]
 >>> startup_valuation(scenarios, 0.95, 100, 250, 13_000_000_000)

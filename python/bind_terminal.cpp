@@ -44,15 +44,15 @@ and boolean flags for value creation and feasibility.
 )");
 
     m.def("consistent_terminal_value",
-        [](double stable_nopat_b, double wacc, double g, double roic) -> double {
+        [](nb::object stable_nopat, double wacc, double g, double roic) -> double {
             return c2b(unwrap(ratvalue::consistent_terminal_value({
-                .stable_nopat    = b2c(stable_nopat_b),
+                .stable_nopat    = obj2c(stable_nopat),
                 .wacc            = d2r(wacc),
                 .terminal_growth = d2r(g),
                 .terminal_roic   = d2r(roic),
             })));
         },
-        nb::arg("stable_nopat_billions"), nb::arg("wacc"),
+        nb::arg("stable_nopat"), nb::arg("wacc"),
         nb::arg("terminal_growth"), nb::arg("terminal_roic"),
         R"(
 ROIC-consistent terminal value (Damodaran ch. 12).
@@ -61,14 +61,14 @@ ROIC-consistent terminal value (Damodaran ch. 12).
 
 Returns
 -------
-float : terminal value in BRL billions
+float : terminal value in major units
 )");
 
     m.def("terminal_value_by_multiple",
-        [](double ebitda_b, double multiple) -> double {
+        [](nb::object ebitda, double multiple) -> double {
             return c2b(unwrap(ratvalue::terminal_value_by_multiple(
-                b2c(ebitda_b), d2r(multiple, 10))));
+                obj2c(ebitda), d2r(multiple, 10))));
         },
-        nb::arg("terminal_ebitda_billions"), nb::arg("ev_ebitda_multiple"),
-        "TV = terminal_EBITDA * EV/EBITDA_multiple  (in BRL billions)");
+        nb::arg("terminal_ebitda"), nb::arg("ev_ebitda_multiple"),
+        "TV = terminal_EBITDA * EV/EBITDA_multiple");
 }

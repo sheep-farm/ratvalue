@@ -52,7 +52,7 @@ void bind_capital_structure(nb::module_& m) {
 
     m.def("optimal_capital_structure",
         [](double bu, double rf, double erp, double tax,
-           double ebit_b, double fv_b,
+           nb::object ebit, nb::object fv,
            double crp, double lam, int steps, bool large_firm) -> PyCSResult {
             auto r = unwrap(ratvalue::optimal_capital_structure({
                 .unlevered_beta       = d2r(bu),
@@ -61,8 +61,8 @@ void bind_capital_structure(nb::module_& m) {
                 .country_risk_premium = d2r(crp),
                 .lambda               = d2r(lam),
                 .tax_rate             = d2r(tax),
-                .ebit                 = b2c(ebit_b),
-                .firm_value           = b2c(fv_b),
+                .ebit                 = obj2c(ebit),
+                .firm_value           = obj2c(fv),
                 .steps                = steps,
                 .large_firm           = large_firm,
             }));
@@ -74,7 +74,7 @@ void bind_capital_structure(nb::module_& m) {
         },
         nb::arg("unlevered_beta"),
         nb::arg("rf"), nb::arg("erp"), nb::arg("tax_rate"),
-        nb::arg("ebit_billions"), nb::arg("firm_value_billions"),
+        nb::arg("ebit"), nb::arg("firm_value"),
         nb::arg("crp") = 0.0, nb::arg("lam") = 1.0,
         nb::arg("steps") = 10, nb::arg("large_firm") = true,
         R"(

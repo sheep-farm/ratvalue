@@ -15,14 +15,14 @@ struct PyERResult {
 void bind_excess_returns(nb::module_& m) {
     nb::class_<PyERResult>(m, "ExcessReturnsResult")
         .def_ro("firm_value",         &PyERResult::firm_value,
-                "IC + PV(EVA) in BRL billions")
+                "IC + PV(EVA) in major units")
         .def_ro("asset_value",        &PyERResult::asset_value,
-                "Invested capital (floor value) in BRL billions")
+                "Invested capital (floor value) in major units")
         .def_ro("pv_excess_returns",  &PyERResult::pv_excess_returns,
-                "PV(EVA) in BRL billions; positive when ROIC > WACC")
+                "PV(EVA) in major units; positive when ROIC > WACC")
         .def("__repr__", [](const PyERResult& r) {
             return "ExcessReturnsResult(firm=" + std::to_string(r.firm_value)
-                 + "B, pv_eva=" + std::to_string(r.pv_excess_returns) + "B)";
+                 + ", pv_eva=" + std::to_string(r.pv_excess_returns) + ")";
         });
 
     auto conv = [](const ratvalue::ExcessReturnsResult& r) -> PyERResult {
@@ -30,15 +30,15 @@ void bind_excess_returns(nb::module_& m) {
     };
 
     m.def("excess_returns_value",
-        [conv](double ic_b, double roic, double wacc, double g) -> PyERResult {
+        [conv](nb::object ic, double roic, double wacc, double g) -> PyERResult {
             return conv(unwrap(ratvalue::excess_returns_value({
-                .invested_capital = b2c(ic_b),
+                .invested_capital = obj2c(ic),
                 .roic             = d2r(roic),
                 .wacc             = d2r(wacc),
                 .terminal_growth  = d2r(g),
             })));
         },
-        nb::arg("invested_capital_billions"),
+        nb::arg("invested_capital"),
         nb::arg("roic"), nb::arg("wacc"), nb::arg("terminal_growth"),
         R"(
 Single-stage EVA model: V = IC * (ROIC - g) / (WACC - g)
@@ -47,14 +47,14 @@ Equivalent to DCF when inputs are consistent.
 )");
 
     m.def("excess_returns_multistage",
-        [conv](double ic_b, double roic,
+        [conv](nb::object ic, double roic,
                std::vector<std::pair<double,int>> stages,
                double wacc, double terminal_roic, double g) -> PyERResult {
             std::vector<ratvalue::ProjectionStage> ps;
             ps.reserve(stages.size());
             for (auto [gr, n] : stages) ps.push_back({d2r(gr), n});
             return conv(unwrap(ratvalue::excess_returns_multistage({
-                .base_invested_capital = b2c(ic_b),
+                .base_invested_capital = obj2c(ic),
                 .roic                  = d2r(roic),
                 .stages                = ps,
                 .wacc                  = d2r(wacc),
@@ -62,7 +62,7 @@ Equivalent to DCF when inputs are consistent.
                 .terminal_growth       = d2r(g),
             })));
         },
-        nb::arg("invested_capital_billions"), nb::arg("roic"),
+        nb::arg("invested_capital"), nb::arg("roic"),
         nb::arg("stages"),
         nb::arg("wacc"), nb::arg("terminal_roic"), nb::arg("terminal_growth"),
         "Multi-stage EVA model with explicit IC growth and ROIC transition.");

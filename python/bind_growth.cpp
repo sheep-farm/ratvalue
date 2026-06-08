@@ -6,35 +6,35 @@ using namespace py_helpers;
 
 void bind_growth(nb::module_& m) {
     m.def("compute_roic",
-        [](double nopat_b, double ic_b) -> double {
+        [](nb::object nopat, nb::object ic) -> double {
             return r2d(unwrap(ratvalue::compute_roic({
-                .nopat            = b2c(nopat_b),
-                .invested_capital = b2c(ic_b),
+                .nopat            = obj2c(nopat),
+                .invested_capital = obj2c(ic),
             })));
         },
-        nb::arg("nopat_billions"), nb::arg("invested_capital_billions"),
+        nb::arg("nopat"), nb::arg("invested_capital"),
         "ROIC = NOPAT / Invested Capital");
 
     m.def("compute_roe",
-        [](double ni_b, double book_equity_b) -> double {
+        [](nb::object ni, nb::object book_equity) -> double {
             return r2d(unwrap(ratvalue::compute_roe({
-                .net_income  = b2c(ni_b),
-                .book_equity = b2c(book_equity_b),
+                .net_income  = obj2c(ni),
+                .book_equity = obj2c(book_equity),
             })));
         },
-        nb::arg("net_income_billions"), nb::arg("book_equity_billions"),
+        nb::arg("net_income"), nb::arg("book_equity"),
         "ROE = Net Income / Book Equity");
 
     m.def("compute_reinvestment_rate",
-        [](double capex_b, double da_b, double delta_nwc_b, double nopat_b) -> double {
+        [](nb::object capex, nb::object da, nb::object delta_nwc, nb::object nopat) -> double {
             return r2d(unwrap(ratvalue::compute_reinvestment_rate({
-                .capex                     = b2c(capex_b),
-                .depreciation_amortization = b2c(da_b),
-                .delta_nwc                 = b2c(delta_nwc_b),
-                .nopat                     = b2c(nopat_b),
+                .capex                     = obj2c(capex),
+                .depreciation_amortization = obj2c(da),
+                .delta_nwc                 = obj2c(delta_nwc),
+                .nopat                     = obj2c(nopat),
             })));
         },
-        nb::arg("capex_b"), nb::arg("da_b"), nb::arg("delta_nwc_b"), nb::arg("nopat_b"),
+        nb::arg("capex"), nb::arg("da"), nb::arg("delta_nwc"), nb::arg("nopat"),
         "Reinvestment rate = (CapEx - D&A + dNWC) / NOPAT");
 
     m.def("fundamental_growth_firm",

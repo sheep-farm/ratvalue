@@ -6,39 +6,39 @@ using namespace py_helpers;
 
 void bind_bank(nb::module_& m) {
     m.def("bank_equity_reinvestment_rate",
-        [](double ni_b, double current_rwa_b,
-           double projected_rwa_b, double target_tier1) -> double {
+        [](nb::object ni, nb::object current_rwa,
+           nb::object projected_rwa, double target_tier1) -> double {
             return r2d(unwrap(ratvalue::bank_equity_reinvestment_rate({
-                .net_income      = b2c(ni_b),
-                .current_rwa     = b2c(current_rwa_b),
-                .projected_rwa   = b2c(projected_rwa_b),
+                .net_income         = obj2c(ni),
+                .current_rwa        = obj2c(current_rwa),
+                .projected_rwa      = obj2c(projected_rwa),
                 .target_tier1_ratio = d2r(target_tier1),
             })));
         },
-        nb::arg("net_income_b"),
-        nb::arg("current_rwa_b"),
-        nb::arg("projected_rwa_b"),
+        nb::arg("net_income"),
+        nb::arg("current_rwa"),
+        nb::arg("projected_rwa"),
         nb::arg("target_tier1_ratio"),
         R"(
 Equity reinvestment rate for banks (Basel III).
 
   RR = (projected_rwa - current_rwa) * target_tier1 / net_income
 
-All monetary arguments in BRL billions.
+Monetary arguments accept float (major units) or int (exact minor units).
 )");
 
     m.def("compute_bank_fcfe",
-        [](double ni_b, double rr) -> double {
+        [](nb::object ni, double rr) -> double {
             return c2b(unwrap(ratvalue::compute_bank_fcfe({
-                .net_income                = b2c(ni_b),
-                .equity_reinvestment_rate  = d2r(rr),
+                .net_income               = obj2c(ni),
+                .equity_reinvestment_rate = d2r(rr),
             })));
         },
-        nb::arg("net_income_billions"), nb::arg("equity_reinvestment_rate"),
+        nb::arg("net_income"), nb::arg("equity_reinvestment_rate"),
         R"(
 Bank FCFE = Net Income * (1 - equity_reinvestment_rate).
 
-Returns float in BRL billions.
+Returns float in major units.
 Use compute_fcfe_dcf() to discount the resulting cash flows.
 )");
 }

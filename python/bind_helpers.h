@@ -46,6 +46,21 @@ inline double c2r(const ratmoney::Currency& c) {
     return ratvalue::detail::to_double(c);
 }
 
+// ── Exact/approximate monetary dispatch ──────────────────────────────────────
+//
+// obj2c dispatches on the Python type of v:
+//   Python int   → minor units (exact, no floating-point rounding)
+//                  e.g. 14_523_456_789_012 → the exact integer centavo count
+//   Python float → major units in the current scale convention (billions)
+//                  e.g. 145.234 → same as b2c(145.234)
+//
+// All existing float-based callers are unaffected.
+inline ratmoney::Currency obj2c(nb::object v) {
+    if (nb::isinstance<nb::int_>(v))
+        return ratmoney::Currency{nb::cast<int64_t>(v), UNIT_RATE(), BRL_DESC()};
+    return b2c(nb::cast<double>(v));
+}
+
 // ── Rational conversions ──────────────────────────────────────────────────────
 
 // double (e.g. 0.05 for 5%) → Rational
